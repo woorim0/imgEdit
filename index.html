@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테두리아웃</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e24;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background-color: #2a2a35;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 { color: #00b0ff; font-size: 24px; margin-bottom: 10px; }
+        p { color: #bbb; font-size: 14px; margin-bottom: 25px; }
+        .drop-zone {
+            border: 2px dashed #00b0ff;
+            padding: 40px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: #333344;
+            transition: background 0.3s;
+            margin-bottom: 20px;
+        }
+        .drop-zone:hover { background-color: #3d3d55; }
+        input[type="file"] { display: none; }
+        
+        .control-panel {
+            background-color: #22222b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .control-group {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .control-group:last-child { margin-bottom: 0; }
+        label { font-size: 14px; color: #e0e0e0; font-weight: bold; }
+        .checkbox-container { display: flex; align-items: center; cursor: pointer; }
+        .checkbox-container input { margin-right: 8px; width: 16px; height: 16px; }
+        
+        .slider-container { display: flex; align-items: center; width: 60%; }
+        .slider-container input { flex-grow: 1; margin-right: 10px; }
+        .slider-value { min-width: 30px; text-align: right; font-size: 14px; color: #00b0ff; }
+
+        #result-container {
+            margin-top: 30px;
+            display: none;
+        }
+        canvas {
+            max-width: 100%;
+            border: 1px solid #444;
+            background-image: linear-gradient(45deg, #111 25%, transparent 25%), linear-gradient(-45deg, #111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111 75%), linear-gradient(-45deg, transparent 75%, #111 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border-radius: 6px;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #00e676;
+            color: #000;
+            font-weight: bold;
+            text-decoration: none;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn:hover { background-color: #00c853; }
+        #status { margin-top: 15px; color: #ffea00; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>테두리아웃</h1>
+    <p>투명 PNG의 검은 테두리를 제거하고, 필요 시 가우시안 블러 효과를 입혀 부드럽게 만들어 줍니다.</p>
+    
+    <div class="drop-zone" id="dropZone">
+        이미지를 드래그 앤 드롭하거나 클릭하여 선택하세요.
+        <input type="file" id="fileInput" accept="image/png">
+    </div>
+
+    <div class="control-panel">
+        <div class="control-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="useBlur"> 가우시안 블러(Blur) 효과 적용하기
+            </label>
+        </div>
+        <div class="control-group" id="blurSliderGroup" style="opacity: 0.5; pointer-events: none;">
+            <label for="blurRadius">블러 강도 (반경픽셀):</label>
+            <div class="slider-container">
+                <input type="range" id="blurRadius" min="1" max="20" value="3">
+                <span class="slider-value" id="blurValue">3px</span>
+            </div>
+        </div>
+        <div class="control-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="useInvert"> 색상 반전(Invert Colors) 적용하기
+            </label>
+        </div>
+    </div>
+
+    <button class="btn" id="processBtn" style="background-color: #00b0ff; color: white; display:none; margin-bottom: 15px;">설정 적용하여 다시 처리</button>
+
+    <div id="status"></div>
+
+    <div id="result-container">
+        <h3>수정된 이미지 결과 (우클릭 저장 또는 아래 버튼 클릭)</h3>
+        <canvas id="canvas"></canvas>
+        <br>
+        <button class="btn" id="downloadBtn">수정된 이미지 다운로드</button>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resultContainer = document.getElementById('result-container');
+    const status = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    const useBlurCheckbox = document.getElementById('useBlur');
+    const blurSliderGroup = document.getElementById('blurSliderGroup');
+    const blurRadiusSlider = document.getElementById('blurRadius');
+    const blurValueLabel = document.getElementById('blurValue');
+    const useInvertCheckbox = document.getElementById('useInvert');
+    const processBtn = document.getElementById('processBtn');
+
+    let currentFile = null;
+    let originalImage = null;
+
+    // 슬라이더 변경 이벤트
+    blurRadiusSlider.addEventListener('input', (e) => {
+        blurValueLabel.innerText = e.target.value + 'px';
+    });
+
+    // 체크박스 상태 변경 이벤트
+    useBlurCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            blurSliderGroup.style.opacity = '1';
+            blurSliderGroup.style.pointerEvents = 'auto';
+        } else {
+            blurSliderGroup.style.opacity = '0.5';
+            blurSliderGroup.style.pointerEvents = 'none';
+        }
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#00e676';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#00b0ff';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#00b0ff';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleFile(files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    });
+
+    processBtn.addEventListener('click', () => {
+        if (originalImage) {
+            runImageProcessing();
+        }
+    });
+
+    function handleFile(file) {
+        if (file.type !== 'image/png') {
+            status.innerText = 'PNG 형식의 이미지만 지원합니다!';
+            return;
+        }
+        currentFile = file;
+        status.innerText = '이미지 로드 중...';
+        
+        const img = new Image();
+        img.onload = function() {
+            originalImage = img;
+            processBtn.style.display = 'inline-block';
+            runImageProcessing();
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    function runImageProcessing() {
+        status.innerText = '이미지 처리 중... 잠시만 기다려주세요.';
+        resultContainer.style.display = 'none';
+
+        setTimeout(() => {
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(originalImage, 0, 0);
+
+            let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 1단계: 검은 테두리를 없애는 알파 블리딩 (기본 수행)
+            alphaBleed(imgData);
+
+            // 2단계: 유저가 체크했을 경우 알파 채널을 보존하는 가우시안 블러 수행
+            if (useBlurCheckbox.checked) {
+                const radius = parseInt(blurRadiusSlider.value);
+                imgData = gaussianBlurRGBA(imgData, radius);
+            }
+
+            // 3단계: 유저가 체크했을 경우 색상 반전 수행 (알파는 유지)
+            if (useInvertCheckbox.checked) {
+                invertColors(imgData);
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            status.innerText = '처리 완료!';
+            resultContainer.style.display = 'block';
+
+            downloadBtn.onclick = () => {
+                const link = document.createElement('a');
+                link.download = 'processed_' + (currentFile ? currentFile.name : 'image.png');
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+        }, 50);
+    }
+
+    // Alpha Bleed 알고리즘 (테두리 검은 선 제거)
+    function alphaBleed(imgData) {
+        const width = imgData.width;
+        const height = imgData.height;
+        const data = imgData.data;
+
+        let changed = true;
+        let iterations = 0;
+        const maxIterations = 16; 
+
+        while (changed && iterations < maxIterations) {
+            changed = false;
+            iterations++;
+            const currentData = new Uint8ClampedArray(data);
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+
+                    if (currentData[idx + 3] === 0) {
+                        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+                        const neighbors = [
+                            {x: x, y: y - 1}, {x: x, y: y + 1},
+                            {x: x - 1, y: y}, {x: x + 1, y: y}
+                        ];
+
+                        for (const n of neighbors) {
+                            if (n.x >= 0 && n.x < width && n.y >= 0 && n.y < height) {
+                                const nIdx = (n.y * width + n.x) * 4;
+                                if (currentData[nIdx + 3] > 0) {
+                                    rSum += currentData[nIdx];
+                                    gSum += currentData[nIdx + 1];
+                                    bSum += currentData[nIdx + 2];
+                                    count++;
+                                }
+                            }
+                        }
+
+                        if (count > 0) {
+                            data[idx] = Math.round(rSum / count);
+                            data[idx + 1] = Math.round(gSum / count);
+                            data[idx + 2] = Math.round(bSum / count);
+                            data[idx + 3] = 0; 
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function invertColors(imgData) {
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = 255 - data[i];
+            data[i + 1] = 255 - data[i + 1];
+            data[i + 2] = 255 - data[i + 2];
+        }
+    }
+
+    // 가우시안 블러 알고리즘 (투명도를 포함한 RGBA 완벽 지원형 1차원 가우시안 근사)
+    function gaussianBlurRGBA(imgData, radius) {
+        const width = imgData.width;
+        const height = imgData.height;
+        const src = imgData.data;
+        
+        const targetImgData = ctx.createImageData(width, height);
+        const dst = targetImgData.data;
+        
+        let tmpData = new Uint8ClampedArray(src);
+        let outData = new Uint8ClampedArray(src.length);
+        
+        const boxes = boxesForGauss(radius, 3);
+        
+        boxBlur(tmpData, outData, width, height, (boxes[0] - 1) / 2);
+        boxBlur(outData, tmpData, width, height, (boxes[1] - 1) / 2);
+        boxBlur(tmpData, outData, width, height, (boxes[2] - 1) / 2);
+        
+        for (let i = 0; i < src.length; i++) {
+            dst[i] = outData[i];
+        }
+        
+        return targetImgData;
+    }
+
+    function boxesForGauss(sigma, n) {
+        const wIdeal = Math.sqrt((12 * sigma * sigma / n) + 1);
+        let wl = Math.floor(wIdeal);
+        if (wl % 2 === 0) wl--;
+        const wu = wl + 2;
+        
+        const mIdeal = (12 * sigma * sigma - n * wl * wl - 4 * n * wl - 3 * n) / (-4 * wl - 4);
+        const m = Math.round(mIdeal);
+        
+        const sizes = [];
+        for (let i = 0; i < n; i++) sizes.push(i < m ? wl : wu);
+        return sizes;
+    }
+
+    function boxBlur(scl, tcl, w, h, r) {
+        for (let i = 0; i < scl.length; i++) tcl[i] = scl[i];
+        boxBlurH(tcl, scl, w, h, r);
+        boxBlurT(scl, tcl, w, h, r);
+    }
+
+    function boxBlurH(scl, tcl, w, h, r) {
+        const arr = 1 / (r + r + 1);
+        for (let i = 0; i < h; i++) {
+            let ti = i * w;
+            let li = ti;
+            let ri = ti + r;
+            
+            let fv = scl[ti * 4], fvg = scl[ti * 4 + 1], fvb = scl[ti * 4 + 2], fva = scl[ti * 4 + 3];
+            let lv = scl[(ti + w - 1) * 4], lvg = scl[(ti + w - 1) * 4 + 1], lvb = scl[(ti + w - 1) * 4 + 2], lva = scl[(ti + w - 1) * 4 + 3];
+            
+            let rsum = (r + 1) * fv, gsum = (r + 1) * fvg, bsum = (r + 1) * fvb, asum = (r + 1) * fva;
+            
+            for (let j = 0; j < r; j++) {
+                rsum += scl[(ti + j) * 4];
+                gsum += scl[(ti + j) * 4 + 1];
+                bsum += scl[(ti + j) * 4 + 2];
+                asum += scl[(ti + j) * 4 + 3];
+            }
+            
+            for (let j = 0; j < w; j++) {
+                rsum += scl[ri * 4] - fv;
+                gsum += scl[ri * 4 + 1] - fvg;
+                bsum += scl[ri * 4 + 2] - fvb;
+                asum += scl[ri * 4 + 3] - fva;
+                
+                tcl[ti * 4] = Math.round(rsum * arr);
+                tcl[ti * 4 + 1] = Math.round(gsum * arr);
+                tcl[ti * 4 + 2] = Math.round(bsum * arr);
+                tcl[ti * 4 + 3] = Math.round(asum * arr);
+                
+                if (j >= r) { fv = scl[li * 4]; fvg = scl[li * 4 + 1]; fvb = scl[li * 4 + 2]; fva = scl[li * 4 + 3]; li++; }
+                if (ri < (i * w + w - 1)) ri++; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
+                ti++;
+            }
+        }
+    }
+
+    function boxBlurT(scl, tcl, w, h, r) {
+        const arr = 1 / (r + r + 1);
+        for (let i = 0; i < w; i++) {
+            let ti = i;
+            let li = ti;
+            let ri = ti + r * w;
+            
+            let fv = scl[ti * 4], fvg = scl[ti * 4 + 1], fvb = scl[ti * 4 + 2], fva = scl[ti * 4 + 3];
+            let lv = scl[(ti + (h - 1) * w) * 4], lvg = scl[(ti + (h - 1) * w) * 4 + 1], lvb = scl[(ti + (h - 1) * w) * 4 + 2], lva = scl[(ti + (h - 1) * w) * 4 + 3];
+            
+            let rsum = (r + 1) * fv, gsum = (r + 1) * fvg, bsum = (r + 1) * fvb, asum = (r + 1) * fva;
+            
+            for (let j = 0; j < r; j++) {
+                rsum += scl[(ti + j * w) * 4];
+                gsum += scl[(ti + j * w) * 4 + 1];
+                bsum += scl[(ti + j * w) * 4 + 2];
+                asum += scl[(ti + j * w) * 4 + 3];
+            }
+            
+            for (let j = 0; j < h; j++) {
+                tcl[ti * 4] = Math.round(rsum * arr);
+                tcl[ti * 4 + 1] = Math.round(gsum * arr);
+                tcl[ti * 4 + 2] = Math.round(bsum * arr);
+                tcl[ti * 4 + 3] = Math.round(asum * arr);
+                
+                rsum += scl[ri * 4] - fv;
+                gsum += scl[ri * 4 + 1] - fvg;
+                bsum += scl[ri * 4 + 2] - fvb;
+                asum += scl[ri * 4 + 3] - fva;
+                
+                if (j >= r) { fv = scl[li * 4]; fvg = scl[li * 4 + 1]; fvb = scl[li * 4 + 2]; fva = scl[li * 4 + 3]; li += w; }
+                if (ri < (w + (h - 1) * w)) ri += w; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
+                ti += w;
+            }
+        }
+    }
+</script>
+</body>
+</html>
