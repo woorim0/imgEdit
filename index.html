@@ -3,11 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>테두리아웃</title>
+    <title>이미지편집 LITE</title>
     <link rel="icon" href="favicon.png" type="image/png">
     <style>
+        @font-face {
+            font-family: 'Galmuri14';
+            src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2506-1@1.0/Galmuri14.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Galmuri14', sans-serif;
+			line-height: 1.6;
             background-color: #1e1e24;
             color: #fff;
             text-align: center;
@@ -88,8 +95,8 @@
 <body>
 
 <div class="container">
-    <h1>테두리아웃</h1>
-    <p>투명 PNG의 검은 테두리를 제거하고, 필요 시 가우시안 블러 효과를 입혀 부드럽게 만들어 줍니다.</p>
+    <h1>이미지편집 LITE</h1>
+    <p>이미지 편집에서 많이 쓰는 기능들만 모았습니다. 또한 매우 빠른 속도를 자랑합니다.</p>
     
     <div class="drop-zone" id="dropZone">
         이미지를 드래그 앤 드롭하거나 클릭하여 선택하세요.
@@ -97,6 +104,18 @@
     </div>
 
     <div class="control-panel">
+        <div class="control-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="useRemoveBackground"> 배경색 제거 적용하기
+            </label>
+        </div>
+        <div class="control-group" id="thresholdSliderGroup" style="opacity: 0.5; pointer-events: none;">
+            <label for="threshold">임계값 (Threshold):</label>
+            <div class="slider-container">
+                <input type="range" id="threshold" min="1" max="500" value="50">
+                <span class="slider-value" id="thresholdValue">10</span>
+            </div>
+        </div>
         <div class="control-group">
             <label class="checkbox-container">
                 <input type="checkbox" id="useBlur"> 가우시안 블러(Blur) 효과 적용하기
@@ -137,6 +156,10 @@
     const status = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     
+    const useRemoveBackgroundCheckbox = document.getElementById('useRemoveBackground');
+    const thresholdSliderGroup = document.getElementById('thresholdSliderGroup');
+    const thresholdSlider = document.getElementById('threshold');
+    const thresholdValueLabel = document.getElementById('thresholdValue');
     const useBlurCheckbox = document.getElementById('useBlur');
     const blurSliderGroup = document.getElementById('blurSliderGroup');
     const blurRadiusSlider = document.getElementById('blurRadius');
@@ -147,9 +170,25 @@
     let currentFile = null;
     let originalImage = null;
 
+    // Threshold 슬라이더 변경 이벤트
+    thresholdSlider.addEventListener('input', (e) => {
+        thresholdValueLabel.innerText = Math.round(e.target.value * 0.2);
+    });
+
     // 슬라이더 변경 이벤트
     blurRadiusSlider.addEventListener('input', (e) => {
         blurValueLabel.innerText = e.target.value + 'px';
+    });
+
+    // 배경색 제거 체크박스 상태 변경 이벤트
+    useRemoveBackgroundCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            thresholdSliderGroup.style.opacity = '1';
+            thresholdSliderGroup.style.pointerEvents = 'auto';
+        } else {
+            thresholdSliderGroup.style.opacity = '0.5';
+            thresholdSliderGroup.style.pointerEvents = 'none';
+        }
     });
 
     // 체크박스 상태 변경 이벤트
@@ -220,16 +259,26 @@
 
             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // 1단계: 검은 테두리를 없애는 알파 블리딩 (기본 수행)
+            // 1단계: 배경색 제거 (사용자가 체크했을 경우)
+            if (useRemoveBackgroundCheckbox.checked) {
+                const threshold = parseInt(thresholdSlider.value);
+                // 이미지의 첫 번째 픽셀의 색상을 배경색으로 사용
+                const targetR = imgData.data[0];
+                const targetG = imgData.data[1];
+                const targetB = imgData.data[2];
+                removeBackground(imgData, targetR, targetG, targetB, threshold);
+            }
+
+            // 2단계: 검은 테두리를 없애는 알파 블리딩 (기본 수행)
             alphaBleed(imgData);
 
-            // 2단계: 유저가 체크했을 경우 알파 채널을 보존하는 가우시안 블러 수행
+            // 3단계: 유저가 체크했을 경우 알파 채널을 보존하는 가우시안 블러 수행
             if (useBlurCheckbox.checked) {
                 const radius = parseInt(blurRadiusSlider.value);
                 imgData = gaussianBlurRGBA(imgData, radius);
             }
 
-            // 3단계: 유저가 체크했을 경우 색상 반전 수행 (알파는 유지)
+            // 4단계: 유저가 체크했을 경우 색상 반전 수행 (알파는 유지)
             if (useInvertCheckbox.checked) {
                 invertColors(imgData);
             }
@@ -247,6 +296,156 @@
         }, 50);
     }
 
+    // 배경색 제거 알고리즘
+    function removeBackground(imgData, targetR, targetG, targetB, threshold = 30) {
+        const width = imgData.width;
+        const height = imgData.height;
+        const data = imgData.data;
+
+        // 방문 여부를 체크할 배열 (중복 연산 방지)
+        const visited = new Uint8Array(width * height);
+        
+        // 플러드 필을 시작할 좌표들을 담을 큐(Queue)
+        const queue = [];
+
+        // 거리 계산 함수 (색상 유사도 체크)
+        function isBackground(idx) {
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const distance = Math.sqrt(
+                Math.pow(r - targetR, 2) +
+                Math.pow(g - targetG, 2) +
+                Math.pow(b - targetB, 2)
+            );
+            return distance < threshold;
+        }
+
+        // [핵심 변경] 네 꼭짓점을 포함한 "이미지의 모든 테두리 4개 면"을 전부 시작점으로 주입
+        // 1. 위쪽 & 아래쪽 라인 전체
+        for (let x = 0; x < width; x++) {
+            // 위쪽 테두리 (y = 0)
+            let idx = (0 * width + x) * 4;
+            if (isBackground(idx)) { queue.push(x, 0); visited[0 * width + x] = 1; }
+            
+            // 아래쪽 테두리 (y = height - 1)
+            idx = ((height - 1) * width + x) * 4;
+            if (isBackground(idx)) { queue.push(x, height - 1); visited[(height - 1) * width + x] = 1; }
+        }
+        // 2. 왼쪽 & 오른쪽 라인 전체
+        for (let y = 0; y < height; y++) {
+            // 왼쪽 테두리 (x = 0)
+            let idx = (y * width + 0) * 4;
+            if (!visited[y * width + 0] && isBackground(idx)) { queue.push(0, y); visited[y * width + 0] = 1; }
+            
+            // 오른쪽 테두리 (x = width - 1)
+            idx = (y * width + (width - 1)) * 4;
+            if (!visited[y * width + (width - 1)] && isBackground(idx)) { queue.push(width - 1, y); visited[y * width + (width - 1)] = 1; }
+        }
+
+        // 큐가 빌 때까지 사방(상하좌우)으로 퍼져나가며 배경 제거
+        let head = 0;
+        while (head < queue.length) {
+            const cx = queue[head++];
+            const cy = queue[head++];
+            
+            const cIdx = (cy * width + cx) * 4;
+            data[cIdx + 3] = 0; // 배경으로 판정된 곳 투명화
+
+            // 상하좌우 인접 픽셀 탐색
+            const neighbors = [
+                {x: cx, y: cy - 1}, // 상
+                {x: cx, y: cy + 1}, // 하
+                {x: cx - 1, y: cy}, // 좌
+                {x: cx + 1, y: cy}  // 우
+            ];
+
+            for (const n of neighbors) {
+                if (n.x >= 0 && n.x < width && n.y >= 0 && n.y < height) {
+                    const vIdx = n.y * width + n.x;
+                    if (!visited[vIdx]) {
+                        const nIdx = vIdx * 4;
+                        if (isBackground(nIdx)) {
+                            visited[vIdx] = 1;
+                            queue.push(n.x, n.y);
+                        }
+                    }
+                }
+            }
+        }
+
+        // [새로운 기능] Color Bleeding: 배경 경계의 반투명 픽셀을 내부 색상으로 채우기
+        const isRemoved = new Uint8Array(width * height);
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] === 0) {
+                isRemoved[i / 4] = 1;
+            }
+        }
+
+        // 경계의 반투명 픽셀(0 < alpha < 255) 처리
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                const pixelIdx = idx * 4;
+                const alpha = data[pixelIdx + 3];
+
+                // 반투명 픽셀이고 제거된 영역 인접 확인
+                if (alpha > 0 && alpha < 255) {
+                    const neighbors = [
+                        {x: x - 1, y: y},
+                        {x: x + 1, y: y},
+                        {x: x, y: y - 1},
+                        {x: x, y: y + 1}
+                    ];
+
+                    let nearRemoved = false;
+                    for (const n of neighbors) {
+                        if (n.x >= 0 && n.x < width && n.y >= 0 && n.y < height) {
+                            if (isRemoved[n.y * width + n.x]) {
+                                nearRemoved = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 제거된 영역과 인접하면 가장 가까운 불투명 픽셀의 색상으로 변경
+                    if (nearRemoved) {
+                        let bestR = 255, bestG = 255, bestB = 255;
+                        let bestDist = Infinity;
+
+                        // 5x5 범위에서 완전 불투명 픽셀 찾기
+                        for (let dy = -2; dy <= 2; dy++) {
+                            for (let dx = -2; dx <= 2; dx++) {
+                                const nx = x + dx;
+                                const ny = y + dy;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    const nIdx = (ny * width + nx) * 4;
+                                    if (data[nIdx + 3] === 255) {
+                                        const r = data[nIdx];
+                                        const g = data[nIdx + 1];
+                                        const b = data[nIdx + 2];
+                                        const dist = dx * dx + dy * dy;
+                                        if (dist < bestDist) {
+                                            bestDist = dist;
+                                            bestR = r;
+                                            bestG = g;
+                                            bestB = b;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 색상을 내부 색상으로 교체
+                        data[pixelIdx] = bestR;
+                        data[pixelIdx + 1] = bestG;
+                        data[pixelIdx + 2] = bestB;
+                    }
+                }
+            }
+        }
+    }
+    
     // Alpha Bleed 알고리즘 (테두리 검은 선 제거)
     function alphaBleed(imgData) {
         const width = imgData.width;
@@ -307,13 +506,14 @@
         }
     }
 
-    // 가우시안 블러 알고리즘 (투명도를 포함한 RGBA 완벽 지원형 1차원 가우시안 근사)
+    // 가우시안 블러 알고리즘 (수정본 - 1차원 가우시안 근사 및 좌표 밀림 버그 완전 해결)
     function gaussianBlurRGBA(imgData, radius) {
         const width = imgData.width;
         const height = imgData.height;
         const src = imgData.data;
         
-        const targetImgData = ctx.createImageData(width, height);
+        // ctx.createImageData 대신 크로스브라우징 환경에서 더 안전한 ImageData 객체 생성자 사용
+        const targetImgData = new ImageData(new Uint8ClampedArray(src.length), width, height);
         const dst = targetImgData.data;
         
         let tmpData = new Uint8ClampedArray(src);
@@ -420,7 +620,7 @@
                 asum += scl[ri * 4 + 3] - fva;
                 
                 if (j >= r) { fv = scl[li * 4]; fvg = scl[li * 4 + 1]; fvb = scl[li * 4 + 2]; fva = scl[li * 4 + 3]; li += w; }
-                if (ri < (w + (h - 1) * w)) ri += w; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
+                if (ri < (i + (h - 1) * w)) ri += w; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
                 ti += w;
             }
         }
