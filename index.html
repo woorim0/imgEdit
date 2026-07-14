@@ -14,7 +14,7 @@
         }
         body {
             font-family: 'Galmuri14', sans-serif;
-			line-height: 1.6;
+            line-height: 1.6;
             background-color: #1e1e24;
             color: #fff;
             text-align: center;
@@ -50,24 +50,18 @@
             text-align: left;
         }
         .control-group {
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
-        .control-group:last-child { margin-bottom: 0; }
         label { font-size: 14px; color: #e0e0e0; font-weight: bold; }
         .checkbox-container { display: flex; align-items: center; cursor: pointer; }
         .checkbox-container input { margin-right: 8px; width: 16px; height: 16px; }
-        
         .slider-container { display: flex; align-items: center; width: 60%; }
         .slider-container input { flex-grow: 1; margin-right: 10px; }
         .slider-value { min-width: 30px; text-align: right; font-size: 14px; color: #00b0ff; }
-
-        #result-container {
-            margin-top: 30px;
-            display: none;
-        }
+        #result-container { margin-top: 30px; display: none; }
         canvas {
             max-width: 100%;
             border: 1px solid #444;
@@ -109,28 +103,30 @@
                 <input type="checkbox" id="useRemoveBackground"> 배경색 제거 적용하기
             </label>
         </div>
-        <div class="control-group" id="thresholdSliderGroup" style="opacity: 0.5; pointer-events: none;">
-            <label for="threshold">임계값 (Threshold):</label>
+        <div class="control-group" id="thresholdSliderGroup" style="opacity: 0.5; pointer-events: none; margin-bottom: 20px;">
+            <label for="threshold">배경 임계값 (Threshold):</label>
             <div class="slider-container">
                 <input type="range" id="threshold" min="1" max="500" value="50">
                 <span class="slider-value" id="thresholdValue">10</span>
             </div>
         </div>
+
         <div class="control-group">
             <label class="checkbox-container">
-                <input type="checkbox" id="useBlur"> 가우시안 블러(Blur) 효과 적용하기
+                <input type="checkbox" id="useGaussianBlur"> 가우시안 블러 적용하기
             </label>
         </div>
-        <div class="control-group" id="blurSliderGroup" style="opacity: 0.5; pointer-events: none;">
-            <label for="blurRadius">블러 강도 (반경픽셀):</label>
+        <div class="control-group" id="blurSliderGroup" style="opacity: 0.5; pointer-events: none; margin-bottom: 20px;">
+            <label for="blurRadius">블러 반지름 (Radius):</label>
             <div class="slider-container">
-                <input type="range" id="blurRadius" min="1" max="20" value="3">
-                <span class="slider-value" id="blurValue">3px</span>
+                <input type="range" id="blurRadius" min="1" max="20" value="5">
+                <span class="slider-value" id="blurValue">5</span>
             </div>
         </div>
+
         <div class="control-group">
             <label class="checkbox-container">
-                <input type="checkbox" id="useInvert"> 색상 반전(Invert Colors) 적용하기
+                <input type="checkbox" id="useInvert"> 색상 반전 (Invert) 적용하기
             </label>
         </div>
     </div>
@@ -140,7 +136,7 @@
     <div id="status"></div>
 
     <div id="result-container">
-        <h3>수정된 이미지 결과 (우클릭 저장 또는 아래 버튼 클릭)</h3>
+        <h3>수정된 이미지 결과</h3>
         <canvas id="canvas"></canvas>
         <br>
         <button class="btn" id="downloadBtn">수정된 이미지 다운로드</button>
@@ -148,96 +144,141 @@
 </div>
 
 <script>
+    // --- 1. 수동 PNG 인코더 모듈 (브라우저 최적화 우회용) ---
+    (function (globalObj) {
+        'use strict';
+        var DEFLATE_METHOD = String.fromCharCode(0x78, 0x01),
+            CRC_TABLE = [],
+            SIGNATURE = String.fromCharCode(137, 80, 78, 71, 13, 10, 26, 10),
+            NO_FILTER = String.fromCharCode(0),
+            make_crc_table = function () {
+                var n, c, k;
+                for (n = 0; n < 256; n++) {
+                    c = n;
+                    for (k = 0; k < 8; k++) {
+                        if (c & 1) c = 0xedb88320 ^ (c >>> 1);
+                        else c = c >>> 1;
+                    }
+                    CRC_TABLE[n] = c;
+                }
+            },
+            inflateStore = function (data) {
+                var MAX_STORE_LENGTH = 65535, storeBuffer = '', i, remaining, blockType;
+                for (i = 0; i < data.length; i += MAX_STORE_LENGTH) {
+                    remaining = data.length - i;
+                    if (remaining <= MAX_STORE_LENGTH) blockType = String.fromCharCode(0x01);
+                    else { remaining = MAX_STORE_LENGTH; blockType = String.fromCharCode(0x00); }
+                    storeBuffer += blockType + String.fromCharCode((remaining & 0xFF), (remaining & 0xFF00) >>> 8);
+                    storeBuffer += String.fromCharCode(((~remaining) & 0xFF), ((~remaining) & 0xFF00) >>> 8);
+                    storeBuffer += data.substring(i, i + remaining);
+                }
+                return storeBuffer;
+            },
+            adler32 = function (data) {
+                var MOD_ADLER = 65521, a = 1, b = 0, i;
+                for (i = 0; i < data.length; i++) {
+                    a = (a + data.charCodeAt(i)) % MOD_ADLER;
+                    b = (b + a) % MOD_ADLER;
+                }
+                return (b << 16) | a;
+            },
+            update_crc = function (crc, buf) {
+                var c = crc, n, b;
+                for (n = 0; n < buf.length; n++) {
+                    b = buf.charCodeAt(n);
+                    c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+                }
+                return c;
+            },
+            crc = function crc(buf) { return update_crc(0xffffffff, buf) ^ 0xffffffff; },
+            dwordAsString = function (dword) {
+                return String.fromCharCode((dword & 0xFF000000) >>> 24, (dword & 0x00FF0000) >>> 16, (dword & 0x0000FF00) >>> 8, (dword & 0x000000FF));
+            },
+            createChunk = function (length, type, data) {
+                var CRC = crc(type + data);
+                return dwordAsString(length) + type + data + dwordAsString(CRC);
+            },
+            IEND,
+            createIHDR = function (width, height) {
+                var IHDRdata = dwordAsString(width) + dwordAsString(height);
+                IHDRdata += String.fromCharCode(8) + String.fromCharCode(6) + String.fromCharCode(0) + String.fromCharCode(0) + String.fromCharCode(0);
+                return createChunk(13, 'IHDR', IHDRdata);
+            },
+            png = function (width, height, rgba) {
+                var IHDR = createIHDR(width, height), IDAT, scanlines = '', scanline, y, x, compressedScanlines;
+                for (y = 0; y < rgba.length; y += width * 4) {
+                    scanline = NO_FILTER;
+                    if (Array.isArray(rgba)) {
+                        for (x = 0; x < width * 4; x++) scanline += String.fromCharCode(rgba[y + x] & 0xff);
+                    } else {
+                        scanline += rgba.substr(y, width * 4);
+                    }
+                    scanlines += scanline;
+                }
+                compressedScanlines = DEFLATE_METHOD + inflateStore(scanlines) + dwordAsString(adler32(scanlines));
+                IDAT = createChunk(compressedScanlines.length, 'IDAT', compressedScanlines);
+                return SIGNATURE + IHDR + IDAT + IEND;
+            };
+        make_crc_table();
+        IEND = createChunk(0, 'IEND', '');
+        globalObj.generatePng = png;
+    }(window));
+
+    function rawImageDataToString(data) {
+        let s = "";
+        const chunk = 8192;
+        for (let i = 0; i < data.length; i += chunk) {
+            s += String.fromCharCode.apply(null, data.subarray(i, i + chunk));
+        }
+        return s;
+    }
+
+    // --- 2. 메인 로직 및 UI 인터랙션 ---
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
     const resultContainer = document.getElementById('result-container');
     const status = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
-    
-    const useRemoveBackgroundCheckbox = document.getElementById('useRemoveBackground');
-    const thresholdSliderGroup = document.getElementById('thresholdSliderGroup');
-    const thresholdSlider = document.getElementById('threshold');
-    const thresholdValueLabel = document.getElementById('thresholdValue');
-    const useBlurCheckbox = document.getElementById('useBlur');
-    const blurSliderGroup = document.getElementById('blurSliderGroup');
-    const blurRadiusSlider = document.getElementById('blurRadius');
-    const blurValueLabel = document.getElementById('blurValue');
-    const useInvertCheckbox = document.getElementById('useInvert');
     const processBtn = document.getElementById('processBtn');
-
+    
     let currentFile = null;
     let originalImage = null;
 
-    // Threshold 슬라이더 변경 이벤트
-    thresholdSlider.addEventListener('input', (e) => {
-        thresholdValueLabel.innerText = Math.round(e.target.value * 0.2);
+    document.getElementById('threshold').addEventListener('input', (e) => {
+        document.getElementById('thresholdValue').innerText = Math.round(e.target.value * 0.2);
+    });
+    document.getElementById('blurRadius').addEventListener('input', (e) => {
+        document.getElementById('blurValue').innerText = e.target.value;
     });
 
-    // 슬라이더 변경 이벤트
-    blurRadiusSlider.addEventListener('input', (e) => {
-        blurValueLabel.innerText = e.target.value + 'px';
+    // 배경색 제거 체크박스 이벤트
+    document.getElementById('useRemoveBackground').addEventListener('change', (e) => {
+        document.getElementById('thresholdSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
+        document.getElementById('thresholdSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
     });
 
-    // 배경색 제거 체크박스 상태 변경 이벤트
-    useRemoveBackgroundCheckbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            thresholdSliderGroup.style.opacity = '1';
-            thresholdSliderGroup.style.pointerEvents = 'auto';
-        } else {
-            thresholdSliderGroup.style.opacity = '0.5';
-            thresholdSliderGroup.style.pointerEvents = 'none';
-        }
-    });
-
-    // 체크박스 상태 변경 이벤트
-    useBlurCheckbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            blurSliderGroup.style.opacity = '1';
-            blurSliderGroup.style.pointerEvents = 'auto';
-        } else {
-            blurSliderGroup.style.opacity = '0.5';
-            blurSliderGroup.style.pointerEvents = 'none';
-        }
+    // 가우시안 블러 체크박스 이벤트 추가
+    document.getElementById('useGaussianBlur').addEventListener('change', (e) => {
+        document.getElementById('blurSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
+        document.getElementById('blurSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
     });
 
     dropZone.addEventListener('click', () => fileInput.click());
-    
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#00e676';
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = '#00b0ff';
-    });
-
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#00e676'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#00b0ff'; });
     dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#00b0ff';
-        const files = e.dataTransfer.files;
-        if (files.length > 0) handleFile(files[0]);
+        e.preventDefault(); dropZone.style.borderColor = '#00b0ff';
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
     });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleFile(e.target.files[0]);
-    });
-
-    processBtn.addEventListener('click', () => {
-        if (originalImage) {
-            runImageProcessing();
-        }
-    });
+    fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+    processBtn.addEventListener('click', () => { if (originalImage) runImageProcessing(); });
 
     function handleFile(file) {
-        if (file.type !== 'image/png') {
-            status.innerText = 'PNG 형식의 이미지만 지원합니다!';
-            return;
-        }
+        if (file.type !== 'image/png') { status.innerText = 'PNG 형식만 지원합니다!'; return; }
         currentFile = file;
         status.innerText = '이미지 로드 중...';
-        
         const img = new Image();
         img.onload = function() {
             originalImage = img;
@@ -259,394 +300,239 @@
 
             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // 1단계: 배경색 제거 (사용자가 체크했을 경우)
-            if (useRemoveBackgroundCheckbox.checked) {
-                const threshold = parseInt(thresholdSlider.value);
-                // 이미지의 첫 번째 픽셀의 색상을 배경색으로 사용
-                const targetR = imgData.data[0];
-                const targetG = imgData.data[1];
-                const targetB = imgData.data[2];
-                removeBackground(imgData, targetR, targetG, targetB, threshold);
+            // [1단계] 배경색 제거
+            if (document.getElementById('useRemoveBackground').checked) {
+                const threshold = parseInt(document.getElementById('threshold').value);
+                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold);
             }
 
-            // 3단계: 유저가 체크했을 경우 알파 채널을 보존하는 가우시안 블러 수행
-            if (useBlurCheckbox.checked) {
-                const radius = parseInt(blurRadiusSlider.value);
-                imgData = gaussianBlurRGBA(imgData, radius);
+            // [2단계] 가우시안 블러 효과 적용 (체크박스가 켜진 경우에만 실행)
+            if (document.getElementById('useGaussianBlur').checked) {
+                const blurRadius = parseInt(document.getElementById('blurRadius').value);
+                if (blurRadius > 0) {
+                    applyGaussianBlur(imgData, blurRadius);
+                }
             }
 
-            // 4단계: 유저가 체크했을 경우 색상 반전 수행 (알파는 유지)
-            if (useInvertCheckbox.checked) {
-                invertColors(imgData);
+            // [3단계] 색상 반전 (Invert) 적용
+            if (document.getElementById('useInvert').checked) {
+                applyInvert(imgData);
             }
 
-            // 마지막 단계: 검은 테두리를 없애는 알파 블리딩 (항상 마지막에 실행)
+            // [4단계] 알파 블리딩 (테두리 찌꺼기 픽스)
             alphaBleed(imgData);
 
+            // 처리된 데이터를 시각적 화면 렌더링용으로 캔버스에 출력
             ctx.putImageData(imgData, 0, 0);
+            
+            // 수동 PNG 인코더로 브라우저의 무손실 물리 데이터 백업 생성
+            const datBase64 = btoa(window.generatePng(canvas.width, canvas.height, rawImageDataToString(imgData.data)));
+
             status.innerText = '처리 완료!';
             resultContainer.style.display = 'block';
 
             downloadBtn.onclick = () => {
                 const link = document.createElement('a');
                 link.download = 'processed_' + (currentFile ? currentFile.name : 'image.png');
-                link.href = canvas.toDataURL();
+                link.href = "data:image/png;base64," + datBase64;
                 link.click();
             };
         }, 50);
     }
 
-    // 배경색 제거 알고리즘
-    function removeBackground(imgData, targetR, targetG, targetB, threshold = 30) {
-        const width = imgData.width;
-        const height = imgData.height;
-        const data = imgData.data;
+    // --- 3. 이미지 필터 함수들 ---
 
-        // 방문 여부를 체크할 배열 (중복 연산 방지)
+    // 배경 제거 알고리즘
+    function removeBackground(imgData, targetR, targetG, targetB, threshold) {
+        const width = imgData.width, height = imgData.height, data = imgData.data;
         const visited = new Uint8Array(width * height);
-        
-        // 플러드 필을 시작할 좌표들을 담을 큐(Queue)
         const queue = [];
 
-        // 거리 계산 함수 (색상 유사도 체크)
         function isBackground(idx) {
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
-            const distance = Math.sqrt(
-                Math.pow(r - targetR, 2) +
-                Math.pow(g - targetG, 2) +
-                Math.pow(b - targetB, 2)
-            );
-            return distance < threshold;
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+            return Math.sqrt(Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)) < threshold;
         }
 
-        // [핵심 변경] 네 꼭짓점을 포함한 "이미지의 모든 테두리 4개 면"을 전부 시작점으로 주입
-        // 1. 위쪽 & 아래쪽 라인 전체
         for (let x = 0; x < width; x++) {
-            // 위쪽 테두리 (y = 0)
             let idx = (0 * width + x) * 4;
-            if (isBackground(idx)) { queue.push(x, 0); visited[0 * width + x] = 1; }
-            
-            // 아래쪽 테두리 (y = height - 1)
+            if (isBackground(idx)) { queue.push(x, 0); visited[x] = 1; }
             idx = ((height - 1) * width + x) * 4;
             if (isBackground(idx)) { queue.push(x, height - 1); visited[(height - 1) * width + x] = 1; }
         }
-        // 2. 왼쪽 & 오른쪽 라인 전체
         for (let y = 0; y < height; y++) {
-            // 왼쪽 테두리 (x = 0)
             let idx = (y * width + 0) * 4;
             if (!visited[y * width + 0] && isBackground(idx)) { queue.push(0, y); visited[y * width + 0] = 1; }
-            
-            // 오른쪽 테두리 (x = width - 1)
             idx = (y * width + (width - 1)) * 4;
             if (!visited[y * width + (width - 1)] && isBackground(idx)) { queue.push(width - 1, y); visited[y * width + (width - 1)] = 1; }
         }
 
-        // 큐가 빌 때까지 사방(상하좌우)으로 퍼져나가며 배경 제거
         let head = 0;
+        const neighbors = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
         while (head < queue.length) {
-            const cx = queue[head++];
-            const cy = queue[head++];
-            
-            const cIdx = (cy * width + cx) * 4;
-            data[cIdx + 3] = 0; // 배경으로 판정된 곳 투명화
-
-            // 상하좌우 인접 픽셀 탐색
-            const neighbors = [
-                {x: cx, y: cy - 1}, // 상
-                {x: cx, y: cy + 1}, // 하
-                {x: cx - 1, y: cy}, // 좌
-                {x: cx + 1, y: cy}  // 우
-            ];
+            const cx = queue[head++], cy = queue[head++];
+            data[(cy * width + cx) * 4 + 3] = 0;
 
             for (const n of neighbors) {
-                if (n.x >= 0 && n.x < width && n.y >= 0 && n.y < height) {
-                    const vIdx = n.y * width + n.x;
-                    if (!visited[vIdx]) {
-                        const nIdx = vIdx * 4;
-                        if (isBackground(nIdx)) {
-                            visited[vIdx] = 1;
-                            queue.push(n.x, n.y);
-                        }
+                const nx = cx + n.x, ny = cy + n.y;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const vIdx = ny * width + nx;
+                    if (!visited[vIdx] && isBackground(vIdx * 4)) {
+                        visited[vIdx] = 1;
+                        queue.push(nx, ny);
                     }
                 }
             }
         }
+    }
 
-        // [새로운 기능] Color Bleeding: 배경 경계의 반투명 픽셀을 내부 색상으로 채우기
-        const isRemoved = new Uint8Array(width * height);
-        for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] === 0) {
-                isRemoved[i / 4] = 1;
+    // 가우시안 블러 알고리즘 (알파 채널 보존형)
+    function applyGaussianBlur(imgData, radius) {
+        const data = imgData.data;
+        const width = imgData.width;
+        const height = imgData.height;
+        const tmp = new Uint8ClampedArray(data.length);
+        
+        // 가우시안 커널 생성
+        const rs = Math.ceil(radius * 2.57);
+        const kernel = [];
+        let kernelSum = 0;
+        for (let i = -radius; i <= radius; i++) {
+            const g = Math.exp(-(i * i) / (2 * radius * radius));
+            kernel.push(g);
+            kernelSum += g;
+        }
+        for (let i = 0; i < kernel.length; i++) kernel[i] /= kernelSum;
+
+        // 수평 블러
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let k = -radius; k <= radius; k++) {
+                    const kx = Math.min(width - 1, Math.max(0, x + k));
+                    const idx = (y * width + kx) * 4;
+                    const weight = kernel[k + radius];
+                    r += data[idx] * weight;
+                    g += data[idx + 1] * weight;
+                    b += data[idx + 2] * weight;
+                    a += data[idx + 3] * weight;
+                }
+                const tidx = (y * width + x) * 4;
+                tmp[tidx] = r; tmp[tidx + 1] = g; tmp[tidx + 2] = b; tmp[tidx + 3] = a;
             }
         }
 
-        // 경계의 반투명 픽셀(0 < alpha < 255) 처리
+        // 수직 블러 및 원본 복사
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                const idx = y * width + x;
-                const pixelIdx = idx * 4;
-                const alpha = data[pixelIdx + 3];
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let k = -radius; k <= radius; k++) {
+                    const ky = Math.min(height - 1, Math.max(0, y + k));
+                    const idx = (ky * width + x) * 4;
+                    const weight = kernel[k + radius];
+                    r += tmp[idx] * weight;
+                    g += tmp[idx + 1] * weight;
+                    b += tmp[idx + 2] * weight;
+                    a += tmp[idx + 3] * weight;
+                }
+                const oidx = (y * width + x) * 4;
+                data[oidx] = r; data[oidx + 1] = g; data[oidx + 2] = b; data[oidx + 3] = a;
+            }
+        }
+    }
 
-                // 반투명 픽셀이고 제거된 영역 인접 확인
-                if (alpha > 0 && alpha < 255) {
-                    const neighbors = [
-                        {x: x - 1, y: y},
-                        {x: x + 1, y: y},
-                        {x: x, y: y - 1},
-                        {x: x, y: y + 1}
-                    ];
+    // 색상 반전 알고리즘 (RGB 채널만 뒤집고 알파는 유지)
+    function applyInvert(imgData) {
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            data[i]     = 255 - data[i];     // R
+            data[i + 1] = 255 - data[i + 1]; // G
+            data[i + 2] = 255 - data[i + 2]; // B
+        }
+    }
+    
+    // 알파 블리딩 (테두리 픽셀픽스 알고리즘)
+    function alphaBleed(imgData) {
+        const width = imgData.width, height = imgData.height, data = imgData.data;
+        const numPixels = width * height;
+        const opaque = new Int8Array(numPixels);
+        const loose = new Uint8Array(numPixels);
+        let pending = [], pendingNext = [];
+        const offsets = [
+            {dx: -1, dy: -1}, {dx: 0, dy: -1}, {dx: 1, dy: -1},
+            {dx: -1, dy:  0},                  {dx: 1, dy:  0},
+            {dx: -1, dy:  1}, {dx: 0, dy:  1}, {dx: 1, dy:  1}
+        ];
 
-                    let nearRemoved = false;
-                    for (const n of neighbors) {
-                        if (n.x >= 0 && n.x < width && n.y >= 0 && n.y < height) {
-                            if (isRemoved[n.y * width + n.x]) {
-                                nearRemoved = true;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const i = y * width + x;
+                const alpha = data[i * 4 + 3];
+
+                if (alpha <= 15) {
+                    data[i * 4 + 3] = 0; 
+                    let isLoose = true;
+                    for (let k = 0; k < 8; k++) {
+                        const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+                        if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+                            if (data[(nY * width + nX) * 4 + 3] > 15) { 
+                                isLoose = false;
                                 break;
                             }
                         }
                     }
-
-                    // 제거된 영역과 인접하면 가장 가까운 불투명 픽셀의 색상으로 변경
-                    if (nearRemoved) {
-                        let bestR = 255, bestG = 255, bestB = 255;
-                        let bestDist = Infinity;
-
-                        // 5x5 범위에서 완전 불투명 픽셀 찾기
-                        for (let dy = -2; dy <= 2; dy++) {
-                            for (let dx = -2; dx <= 2; dx++) {
-                                const nx = x + dx;
-                                const ny = y + dy;
-                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                                    const nIdx = (ny * width + nx) * 4;
-                                    if (data[nIdx + 3] === 255) {
-                                        const r = data[nIdx];
-                                        const g = data[nIdx + 1];
-                                        const b = data[nIdx + 2];
-                                        const dist = dx * dx + dy * dy;
-                                        if (dist < bestDist) {
-                                            bestDist = dist;
-                                            bestR = r;
-                                            bestG = g;
-                                            bestB = b;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // 색상을 내부 색상으로 교체
-                        data[pixelIdx] = bestR;
-                        data[pixelIdx + 1] = bestG;
-                        data[pixelIdx + 2] = bestB;
-                    }
+                    if (!isLoose) pending.push(i);
+                    else loose[i] = 1;
+                } else {
+                    opaque[i] = -1; 
                 }
             }
         }
-    }
-    
-    // Alpha Bleed 알고리즘 (테두리 검은 선 제거)
-    function alphaBleed(imgData) {
-			const width = imgData.width;
-			const height = imgData.height;
-			const data = imgData.data;
-			const numPixels = width * height;
-			
-			const r = new Uint8Array(numPixels);
-			const g = new Uint8Array(numPixels);
-			const b = new Uint8Array(numPixels);
-			const a = new Uint8Array(numPixels);
-			
-			const visited = new Uint8Array(numPixels);
-			const queue = [];
-			
-			for (let i = 0; i < numPixels; i++) {
-				const idx = i * 4;
-				r[i] = data[idx];
-				g[i] = data[idx + 1];
-				b[i] = data[idx + 2];
-				a[i] = data[idx + 3];
 
-				// [수정] 조금이라도 색상 정보가 있는 곳(Alpha > 0)은 전부 시작점으로 인정합니다.
-				// 이렇게 해야 이미 투명 처리가 되어 있는 PNG 파일도 정상적으로 인식을 시작합니다.
-				if (a[i] > 0) {
-					visited[i] = 1;
-					queue.push(i);
-				}
-			}
+        while (pending.length > 0) {
+            pendingNext = [];
+            for (let p = 0; p < pending.length; p++) {
+                const i = pending[p], x = i % width, y = Math.floor(i / width);
+                let rSum = 0, gSum = 0, bSum = 0, count = 0;
 
-			let head = 0;
-			const neighbors = [-width, width, -1, 1];
+                for (let k = 0; k < 8; k++) {
+                    const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+                    if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+                        const nI = nY * width + nX;
+                        if (opaque[nI] & 1) { 
+                            const nIdx = nI * 4;
+                            rSum += data[nIdx]; gSum += data[nIdx + 1]; bSum += data[nIdx + 2];
+                            count++;
+                        }
+                    }
+                }
 
-			while (head < queue.length) {
-				const curr = queue[head++];
-				const cx = curr % width;
-				const cy = Math.floor(curr / width);
+                if (count > 0) {
+                    const idx = i * 4;
+                    data[idx] = Math.round(rSum / count);
+                    data[idx + 1] = Math.round(gSum / count);
+                    data[idx + 2] = Math.round(bSum / count);
+                    
+                    opaque[i] = 0xFE; 
 
-				const currR = r[curr];
-				const currG = g[curr];
-				const currB = b[curr];
-
-				for (const offset of neighbors) {
-						const next = curr + offset;
-						
-					if (next >= 0 && next < numPixels) {
-						const nx = next % width;
-						const ny = Math.floor(next / width);
-						
-						if (Math.abs(cx - nx) > 1 || Math.abs(cy - ny) > 1) continue;
-
-						if (!visited[next]) {
-							visited[next] = 1;
-							
-							// 주변의 진짜 색상을 투명 영역에 전염시킵니다.
-							r[next] = currR;
-							g[next] = currG;
-							b[next] = currB;
-							
-							queue.push(next);
-						}
-					}
-				}
-			}
-
-			// 최종 반영
-			for (let i = 0; i < numPixels; i++) {
-				const idx = i * 4;
-				data[idx] = r[i];
-				data[idx + 1] = g[i];
-				data[idx + 2] = b[i];
-				// 원래 투명도(Alpha)는 철저하게 0이나 원래 값 그대로 유지합니다!
-			}
-		}
-		
-    function invertColors(imgData) {
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            data[i] = 255 - data[i];
-            data[i + 1] = 255 - data[i + 1];
-            data[i + 2] = 255 - data[i + 2];
-        }
-    }
-
-    // 가우시안 블러 알고리즘 (수정본 - 1차원 가우시안 근사 및 좌표 밀림 버그 완전 해결)
-    function gaussianBlurRGBA(imgData, radius) {
-        const width = imgData.width;
-        const height = imgData.height;
-        const src = imgData.data;
-        
-        // ctx.createImageData 대신 크로스브라우징 환경에서 더 안전한 ImageData 객체 생성자 사용
-        const targetImgData = new ImageData(new Uint8ClampedArray(src.length), width, height);
-        const dst = targetImgData.data;
-        
-        let tmpData = new Uint8ClampedArray(src);
-        let outData = new Uint8ClampedArray(src.length);
-        
-        const boxes = boxesForGauss(radius, 3);
-        
-        boxBlur(tmpData, outData, width, height, (boxes[0] - 1) / 2);
-        boxBlur(outData, tmpData, width, height, (boxes[1] - 1) / 2);
-        boxBlur(tmpData, outData, width, height, (boxes[2] - 1) / 2);
-        
-        for (let i = 0; i < src.length; i++) {
-            dst[i] = outData[i];
-        }
-        
-        return targetImgData;
-    }
-
-    function boxesForGauss(sigma, n) {
-        const wIdeal = Math.sqrt((12 * sigma * sigma / n) + 1);
-        let wl = Math.floor(wIdeal);
-        if (wl % 2 === 0) wl--;
-        const wu = wl + 2;
-        
-        const mIdeal = (12 * sigma * sigma - n * wl * wl - 4 * n * wl - 3 * n) / (-4 * wl - 4);
-        const m = Math.round(mIdeal);
-        
-        const sizes = [];
-        for (let i = 0; i < n; i++) sizes.push(i < m ? wl : wu);
-        return sizes;
-    }
-
-    function boxBlur(scl, tcl, w, h, r) {
-        for (let i = 0; i < scl.length; i++) tcl[i] = scl[i];
-        boxBlurH(tcl, scl, w, h, r);
-        boxBlurT(scl, tcl, w, h, r);
-    }
-
-    function boxBlurH(scl, tcl, w, h, r) {
-        const arr = 1 / (r + r + 1);
-        for (let i = 0; i < h; i++) {
-            let ti = i * w;
-            let li = ti;
-            let ri = ti + r;
-            
-            let fv = scl[ti * 4], fvg = scl[ti * 4 + 1], fvb = scl[ti * 4 + 2], fva = scl[ti * 4 + 3];
-            let lv = scl[(ti + w - 1) * 4], lvg = scl[(ti + w - 1) * 4 + 1], lvb = scl[(ti + w - 1) * 4 + 2], lva = scl[(ti + w - 1) * 4 + 3];
-            
-            let rsum = (r + 1) * fv, gsum = (r + 1) * fvg, bsum = (r + 1) * fvb, asum = (r + 1) * fva;
-            
-            for (let j = 0; j < r; j++) {
-                rsum += scl[(ti + j) * 4];
-                gsum += scl[(ti + j) * 4 + 1];
-                bsum += scl[(ti + j) * 4 + 2];
-                asum += scl[(ti + j) * 4 + 3];
+                    for (let k = 0; k < 8; k++) {
+                        const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+                        if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+                            const nI = nY * width + nX;
+                            if (loose[nI]) {
+                                pendingNext.push(nI);
+                                loose[nI] = 0;
+                            }
+                        }
+                    }
+                } else {
+                    pendingNext.push(i);
+                }
             }
-            
-            for (let j = 0; j < w; j++) {
-                rsum += scl[ri * 4] - fv;
-                gsum += scl[ri * 4 + 1] - fvg;
-                bsum += scl[ri * 4 + 2] - fvb;
-                asum += scl[ri * 4 + 3] - fva;
-                
-                tcl[ti * 4] = Math.round(rsum * arr);
-                tcl[ti * 4 + 1] = Math.round(gsum * arr);
-                tcl[ti * 4 + 2] = Math.round(bsum * arr);
-                tcl[ti * 4 + 3] = Math.round(asum * arr);
-                
-                if (j >= r) { fv = scl[li * 4]; fvg = scl[li * 4 + 1]; fvb = scl[li * 4 + 2]; fva = scl[li * 4 + 3]; li++; }
-                if (ri < (i * w + w - 1)) ri++; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
-                ti++;
-            }
-        }
-    }
 
-    function boxBlurT(scl, tcl, w, h, r) {
-        const arr = 1 / (r + r + 1);
-        for (let i = 0; i < w; i++) {
-            let ti = i;
-            let li = ti;
-            let ri = ti + r * w;
-            
-            let fv = scl[ti * 4], fvg = scl[ti * 4 + 1], fvb = scl[ti * 4 + 2], fva = scl[ti * 4 + 3];
-            let lv = scl[(ti + (h - 1) * w) * 4], lvg = scl[(ti + (h - 1) * w) * 4 + 1], lvb = scl[(ti + (h - 1) * w) * 4 + 2], lva = scl[(ti + (h - 1) * w) * 4 + 3];
-            
-            let rsum = (r + 1) * fv, gsum = (r + 1) * fvg, bsum = (r + 1) * fvb, asum = (r + 1) * fva;
-            
-            for (let j = 0; j < r; j++) {
-                rsum += scl[(ti + j * w) * 4];
-                gsum += scl[(ti + j * w) * 4 + 1];
-                bsum += scl[(ti + j * w) * 4 + 2];
-                asum += scl[(ti + j * w) * 4 + 3];
+            if (pendingNext.length > 0) {
+                for (let p = 0; p < pending.length; p++) opaque[pending[p]] >>= 1; 
             }
-            
-            for (let j = 0; j < h; j++) {
-                tcl[ti * 4] = Math.round(rsum * arr);
-                tcl[ti * 4 + 1] = Math.round(gsum * arr);
-                tcl[ti * 4 + 2] = Math.round(bsum * arr);
-                tcl[ti * 4 + 3] = Math.round(asum * arr);
-                
-                rsum += scl[ri * 4] - fv;
-                gsum += scl[ri * 4 + 1] - fvg;
-                bsum += scl[ri * 4 + 2] - fvb;
-                asum += scl[ri * 4 + 3] - fva;
-                
-                if (j >= r) { fv = scl[li * 4]; fvg = scl[li * 4 + 1]; fvb = scl[li * 4 + 2]; fva = scl[li * 4 + 3]; li += w; }
-                if (ri < (i + (h - 1) * w)) ri += w; else { fv = lv; fvg = lvg; fvb = lvb; fva = lva; }
-                ti += w;
-            }
+            pending = pendingNext;
         }
     }
 </script>
