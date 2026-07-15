@@ -74,7 +74,7 @@
         canvas {
 					max-width: 100%;
 					border: 1px solid #444;
-					background-color: transparent; /* 혹은 원래 배경에 깔려있던 색상 */
+					background-color: transparent;
 					background-image: conic-gradient(#111 25%, transparent 25% 50%, #111 50% 75%, transparent 75%);
 					background-size: 20px 20px;
 					border-radius: 6px;
@@ -118,6 +118,12 @@
         <div class="control-group">
             <label class="checkbox-container">
                 <input type="checkbox" id="useRemoveBackground"> 배경색 제거 적용하기
+            </label>
+        </div>
+        <div class="control-group" id="singleColorLogoGroup" style="margin: -10px 0 12px 20px; pointer-events: none;">
+            <label class="checkbox-container">
+                <input type="checkbox" id="useSingleColorLogoMode" disabled>
+                <span class="checkbox-label-text">단일 색 로고 모드</span>
             </label>
         </div>
         <div class="control-group" id="thresholdSliderGroup" style="opacity: 0.5; pointer-events: none; margin-bottom: 20px;">
@@ -289,10 +295,21 @@
 
     // 배경색 제거 체크박스 이벤트
     document.getElementById('useRemoveBackground').addEventListener('change', (e) => {
-        document.getElementById('thresholdSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
-        document.getElementById('thresholdSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
-        document.getElementById('useRemoveBackgroundStrong').disabled = !e.target.checked;
-        if (!e.target.checked) document.getElementById('useRemoveBackgroundStrong').checked = false;
+        const thresholdSliderGroup = document.getElementById('thresholdSliderGroup');
+        const singleColorLogoGroup = document.getElementById('singleColorLogoGroup');
+        const singleColorLogoMode = document.getElementById('useSingleColorLogoMode');
+        const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong');
+
+        thresholdSliderGroup.style.opacity = e.target.checked ? '1' : '0.5';
+        thresholdSliderGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+        singleColorLogoGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+        strongBackgroundRemove.disabled = !e.target.checked;
+        singleColorLogoMode.disabled = !e.target.checked;
+
+        if (!e.target.checked) {
+            strongBackgroundRemove.checked = false;
+            singleColorLogoMode.checked = false;
+        }
     });
 
     // 가우시안 블러 체크박스 이벤트 추가
@@ -342,7 +359,8 @@
             if (document.getElementById('useRemoveBackground').checked) {
                 const threshold = parseInt(document.getElementById('threshold').value);
                 const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong').checked;
-                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold, strongBackgroundRemove);
+                const singleColorLogoMode = document.getElementById('useSingleColorLogoMode').checked;
+                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold, strongBackgroundRemove, singleColorLogoMode);
             }
 
             // [2단계] 가우시안 블러 효과 적용 (체크박스가 켜진 경우에만 실행)
@@ -382,16 +400,17 @@
 
     // --- 3. 이미지 필터 함수들 ---
 
-    // 배경 제거 알고리즘
-    function removeBackground(imgData, targetR, targetG, targetB, threshold, strong) {
+    // 배경 제거 알고리즘 + 단일 색 로고 보정
+    function removeBackground(imgData, targetR, targetG, targetB, threshold, strong, singleColorLogoMode) {
         const width = imgData.width, height = imgData.height, data = imgData.data;
-        const visited = new Uint8Array(width * height);
-        const queue = [];
 
         function isBackground(idx) {
             const r = data[idx], g = data[idx + 1], b = data[idx + 2];
             return Math.sqrt(Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)) < threshold;
         }
+
+        const visited = new Uint8Array(width * height);
+        const queue = [];
 
         for (let x = 0; x < width; x++) {
             let idx = (0 * width + x) * 4;
@@ -428,6 +447,34 @@
             for (let idx = 0; idx < data.length; idx += 4) {
                 if (isBackground(idx)) {
                     data[idx + 3] = 0;
+                }
+            }
+        }
+
+        if (singleColorLogoMode) {
+            const colorCounts = new Map();
+            for (let idx = 0; idx < data.length; idx += 4) {
+                if (data[idx + 3] <= 0) continue;
+                const key = `${data[idx]},${data[idx + 1]},${data[idx + 2]}`;
+                colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+            }
+
+            let dominantKey = null;
+            let dominantCount = -1;
+            colorCounts.forEach((count, key) => {
+                if (count > dominantCount) {
+                    dominantCount = count;
+                    dominantKey = key;
+                }
+            });
+
+            if (dominantKey) {
+                const [dominantR, dominantG, dominantB] = dominantKey.split(',').map(Number);
+                for (let idx = 0; idx < data.length; idx += 4) {
+                    if (data[idx + 3] <= 0) continue;
+                    data[idx] = dominantR;
+                    data[idx + 1] = dominantG;
+                    data[idx + 2] = dominantB;
                 }
             }
         }
