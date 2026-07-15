@@ -55,21 +55,38 @@
             align-items: center;
             justify-content: space-between;
         }
+				.control-group label {
+					white-space: nowrap; /* 글자가 아래로 꺾이지 않도록 강제 */
+					flex-shrink: 0;      /* flex 레이아웃 안에서 label이 찌그러지는 것을 방지 */
+					min-width: 45px;     /* '배경:' 텍스트가 들어갈 최소 공간 확보 (필요시 조절) */
+				}
         label { font-size: 14px; color: #e0e0e0; font-weight: bold; }
         .checkbox-container { display: flex; align-items: center; cursor: pointer; }
         .checkbox-container input { margin-right: 8px; width: 16px; height: 16px; }
+        .checkbox-container input:disabled { opacity: 0.45; cursor: not-allowed; }
+        .checkbox-label-text { color: #e0e0e0; }
+        .checkbox-container input:disabled + .checkbox-label-text { color: #777; }
+        .control-group select { width: 100%; padding: 8px 10px; border-radius: 5px; border: 1px solid #444; background-color: #1d1d27; color: #fff; }
         .slider-container { display: flex; align-items: center; width: 60%; }
         .slider-container input { flex-grow: 1; margin-right: 10px; }
         .slider-value { min-width: 30px; text-align: right; font-size: 14px; color: #00b0ff; }
         #result-container { margin-top: 30px; display: none; }
         canvas {
-            max-width: 100%;
-            border: 1px solid #444;
-            background-image: linear-gradient(45deg, #111 25%, transparent 25%), linear-gradient(-45deg, #111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111 75%), linear-gradient(-45deg, transparent 75%, #111 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border-radius: 6px;
+					max-width: 100%;
+					border: 1px solid #444;
+					background-color: transparent; /* 혹은 원래 배경에 깔려있던 색상 */
+					background-image: conic-gradient(#111 25%, transparent 25% 50%, #111 50% 75%, transparent 75%);
+					background-size: 20px 20px;
+					border-radius: 6px;
         }
+        canvas.whiteChecker {
+					background-color: #fff;
+					background-image: conic-gradient(#ddd 25%, transparent 25% 50%, #ddd 50% 75%, transparent 75%);
+					background-size: 20px 20px;
+				}
+        canvas.black { background-image: none; background-color: #000; }
+        canvas.white { background-image: none; background-color: #fff; }
+        canvas.green { background-image: none; background-color: #00c853; }
         .btn {
             display: inline-block;
             margin-top: 15px;
@@ -110,6 +127,12 @@
                 <span class="slider-value" id="thresholdValue">10</span>
             </div>
         </div>
+        <div class="control-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="useRemoveBackgroundStrong" disabled>
+                <span class="checkbox-label-text">배경색 제거 강화</span>
+            </label>
+        </div>
 
         <div class="control-group">
             <label class="checkbox-container">
@@ -130,6 +153,16 @@
             </label>
         </div>
     </div>
+		<div class="control-group">
+				<label for="previewBackground">배경:</label>
+				<select id="previewBackground">
+						<option value="blackChecker">검은 체크무늬</option>
+						<option value="whiteChecker">흰 체크무늬</option>
+						<option value="black">검은색</option>
+						<option value="white">흰색</option>
+						<option value="green">초록색</option>
+				</select>
+		</div>
 
     <button class="btn" id="processBtn" style="background-color: #00b0ff; color: white; display:none; margin-bottom: 15px;">설정 적용하여 다시 처리</button>
 
@@ -242,6 +275,7 @@
     const status = document.getElementById('status');
     const downloadBtn = document.getElementById('downloadBtn');
     const processBtn = document.getElementById('processBtn');
+    const previewBackground = document.getElementById('previewBackground');
     
     let currentFile = null;
     let originalImage = null;
@@ -257,6 +291,8 @@
     document.getElementById('useRemoveBackground').addEventListener('change', (e) => {
         document.getElementById('thresholdSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
         document.getElementById('thresholdSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
+        document.getElementById('useRemoveBackgroundStrong').disabled = !e.target.checked;
+        if (!e.target.checked) document.getElementById('useRemoveBackgroundStrong').checked = false;
     });
 
     // 가우시안 블러 체크박스 이벤트 추가
@@ -264,6 +300,8 @@
         document.getElementById('blurSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
         document.getElementById('blurSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
     });
+
+    previewBackground.addEventListener('change', () => updateCanvasPreviewBackground());
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#00e676'; });
@@ -303,7 +341,8 @@
             // [1단계] 배경색 제거
             if (document.getElementById('useRemoveBackground').checked) {
                 const threshold = parseInt(document.getElementById('threshold').value);
-                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold);
+                const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong').checked;
+                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold, strongBackgroundRemove);
             }
 
             // [2단계] 가우시안 블러 효과 적용 (체크박스가 켜진 경우에만 실행)
@@ -330,6 +369,7 @@
 
             status.innerText = '처리 완료!';
             resultContainer.style.display = 'block';
+            updateCanvasPreviewBackground();
 
             downloadBtn.onclick = () => {
                 const link = document.createElement('a');
@@ -343,7 +383,7 @@
     // --- 3. 이미지 필터 함수들 ---
 
     // 배경 제거 알고리즘
-    function removeBackground(imgData, targetR, targetG, targetB, threshold) {
+    function removeBackground(imgData, targetR, targetG, targetB, threshold, strong) {
         const width = imgData.width, height = imgData.height, data = imgData.data;
         const visited = new Uint8Array(width * height);
         const queue = [];
@@ -380,6 +420,14 @@
                         visited[vIdx] = 1;
                         queue.push(nx, ny);
                     }
+                }
+            }
+        }
+
+        if (strong) {
+            for (let idx = 0; idx < data.length; idx += 4) {
+                if (isBackground(idx)) {
+                    data[idx + 3] = 0;
                 }
             }
         }
@@ -447,6 +495,28 @@
             data[i]     = 255 - data[i];     // R
             data[i + 1] = 255 - data[i + 1]; // G
             data[i + 2] = 255 - data[i + 2]; // B
+        }
+    }
+
+    function updateCanvasPreviewBackground() {
+        const selected = previewBackground.value;
+        canvas.className = '';
+        switch (selected) {
+            case 'blackChecker':
+                // default checker background when no extra class is set
+                break;
+            case 'whiteChecker':
+                canvas.classList.add('whiteChecker');
+                break;
+            case 'black':
+                canvas.classList.add('black');
+                break;
+            case 'white':
+                canvas.classList.add('white');
+                break;
+            case 'green':
+                canvas.classList.add('green');
+                break;
         }
     }
     
