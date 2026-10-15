@@ -1,657 +1,1171 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>이미지편집 LITE</title>
-    <link rel="icon" href="favicon.png" type="image/png">
-    <style>
-        @font-face {
-            font-family: 'Galmuri14';
-            src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2506-1@1.0/Galmuri14.woff2') format('woff2');
-            font-weight: normal;
-            font-display: swap;
-        }
-        body {
-            font-family: 'Galmuri14', sans-serif;
-            line-height: 1.6;
-            background-color: #1e1e24;
-            color: #fff;
-            text-align: center;
-            padding: 20px;
-        }
-        .container {
-            max-width: 650px;
-            margin: 0 auto;
-            background-color: #2a2a35;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        h1 { color: #00b0ff; font-size: 24px; margin-bottom: 10px; }
-        p { color: #bbb; font-size: 14px; margin-bottom: 25px; }
-        .drop-zone {
-            border: 2px dashed #00b0ff;
-            padding: 40px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            background-color: #333344;
-            transition: background 0.3s;
-            margin-bottom: 20px;
-        }
-        .drop-zone:hover { background-color: #3d3d55; }
-        input[type="file"] { display: none; }
-        
-        .control-panel {
-            background-color: #22222b;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .control-group {
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-				.control-group label {
-					white-space: nowrap; /* 글자가 아래로 꺾이지 않도록 강제 */
-					flex-shrink: 0;      /* flex 레이아웃 안에서 label이 찌그러지는 것을 방지 */
-					min-width: 45px;     /* '배경:' 텍스트가 들어갈 최소 공간 확보 (필요시 조절) */
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>이미지편집 LITE</title>
+		<link rel="icon" href="favicon.png" type="image/png">
+		<style>
+				@font-face {
+					font-family: 'Pretendard';
+					src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Regular.woff2') format('woff2');
+					font-weight: 400;
+					font-display: swap;
 				}
-        label { font-size: 14px; color: #e0e0e0; font-weight: bold; }
-        .checkbox-container { display: flex; align-items: center; cursor: pointer; }
-        .checkbox-container input { margin-right: 8px; width: 16px; height: 16px; }
-        .checkbox-container input:disabled { opacity: 0.45; cursor: not-allowed; }
-        .checkbox-label-text { color: #e0e0e0; }
-        .checkbox-container input:disabled + .checkbox-label-text { color: #777; }
-        .control-group select { width: 100%; padding: 8px 10px; border-radius: 5px; border: 1px solid #444; background-color: #1d1d27; color: #fff; }
-        .slider-container { display: flex; align-items: center; width: 60%; }
-        .slider-container input { flex-grow: 1; margin-right: 10px; }
-        .slider-value { min-width: 30px; text-align: right; font-size: 14px; color: #00b0ff; }
-        #result-container { margin-top: 30px; display: none; }
-        canvas {
+				@font-face {
+					font-family: 'Pretendard';
+					src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Medium.woff2') format('woff2');
+					font-weight: 500;
+					font-display: swap;
+				}
+				@font-face {
+					font-family: 'Pretendard';
+					src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-SemiBold.woff2') format('woff2');
+					font-weight: 600;
+					font-display: swap;
+				}
+				@font-face {
+					font-family: 'Pretendard';
+					src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Bold.woff2') format('woff2');
+					font-weight: 700;
+					font-display: swap;
+				}
+				body {
+						font-family: 'Pretendard', sans-serif;
+						font-weight: 400;
+						line-height: 1.6;
+						margin: 0;
+						min-height: 100vh;
+						background-color: #1e1e1e;
+						color: #cccccc;
+				}
+				.container {
+						min-height: 100vh;
+						display: flex;
+						flex-direction: column;
+						background: #1e1e1e;
+				}
+				.app-header {
+						height: 54px;
+						flex: 0 0 54px;
+						display: flex;
+						align-items: center;
+						gap: 12px;
+						padding: 0 22px;
+						background: #181818;
+						border-bottom: 1px solid #303030;
+						box-sizing: border-box;
+				}
+				.app-mark {
+						display: block;
+						width: 28px;
+						height: 28px;
+						object-fit: contain;
+						border-radius: 6px;
+				}
+				.app-title { color: #e7e7e7; font-size: 14px; font-weight: 600; }
+				.app-subtitle { color: #858585; font-size: 11px; }
+				.header-badge {
+						margin-left: auto;
+						padding: 3px 8px;
+						border: 1px solid #3c3c3c;
+						border-radius: 4px;
+						color: #9da1a6;
+						font-size: 10px;
+						letter-spacing: 0.06em;
+				}
+				.workspace {
+						display: grid;
+						grid-template-columns: 320px minmax(0, 1fr);
+						flex: 1;
+						min-height: 0;
+				}
+				.settings-sidebar {
+						min-width: 0;
+						padding: 20px 16px;
+						background: #252526;
+						border-right: 1px solid #333;
+				}
+				.section-heading {
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						margin: 0 4px 14px;
+						color: #cccccc;
+						font-size: 13px;
+						font-weight: 600;
+						letter-spacing: 0;
+						text-transform: none;
+				}
+				.section-heading > span { color: #858585; font-size: 10px; font-weight: 400; letter-spacing: 0; }
+				.reset-button {
+						display: inline-flex;
+						align-items: center;
+						gap: 5px;
+						padding: 4px 8px;
+						border: 1px solid #454545;
+						border-radius: 4px;
+						background: #333333;
+						color: #cccccc;
+						font: inherit;
+						font-size: 11px;
+						letter-spacing: 0;
+						text-transform: none;
+						cursor: pointer;
+				}
+				.reset-button:hover { border-color: #3794ff; color: #ffffff; }
+				.drop-zone {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						gap: 10px;
+						min-height: 48px;
+						padding: 12px 18px;
+						border: 1px dashed #505050;
+						border-radius: 6px;
+						cursor: pointer;
+						background-color: #252526;
+						color: #c5c5c5;
+						font-size: 12px;
+						transition: background 0.2s ease, border-color 0.2s ease;
+						box-sizing: border-box;
+				}
+				.drop-zone::before { content: "＋"; color: #3794ff; font-size: 18px; }
+				.drop-zone:hover { border-color: #3794ff; background-color: #2a2d2e; }
+				input[type="file"] { display: none; }
+				.control-panel {
+						padding: 0;
+						background: transparent;
+						text-align: left;
+				}
+				.control-group {
+						min-height: 38px;
+						margin: 0;
+						padding: 6px 8px;
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						border-bottom: 1px solid #303030;
+						box-sizing: border-box;
+				}
+				.slider-control-group {
+						align-items: stretch;
+						flex-direction: column;
+						gap: 5px;
+				}
+				.slider-control-group > label { display: block; }
+				.control-group label {
+						white-space: normal;
+						flex-shrink: 1;
+						min-width: 0;
+				}
+				label { font-size: 12px; color: #cccccc; font-weight: 500; }
+				.checkbox-container { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+				.checkbox-container input {
+						flex: 0 0 auto;
+						width: 14px;
+						height: 14px;
+						margin: 0;
+						accent-color: #007acc;
+				}
+				.checkbox-container input:disabled { opacity: 0.45; cursor: not-allowed; }
+				.checkbox-label-text { color: #e0e0e0; }
+				.checkbox-container input:disabled + .checkbox-label-text { color: #777; }
+				input[type="range"] { accent-color: #3794ff; cursor: pointer; }
+				input[type="range"]:disabled { cursor: not-allowed; opacity: 0.45; }
+				.expandable {
+						max-height: 0;
+						overflow: hidden;
+						opacity: 0;
+						transform: translateY(-6px);
+						transition: max-height 0.8s ease, opacity 0.6s ease, transform 0.6s ease;
+				}
+				.expandable.is-expanded {
+						max-height: 600px;
+						opacity: 1;
+						transform: translateY(0);
+				}
+				.expandable-content { min-height: 0; overflow: hidden; }
+				.color-picker-btn {
+						display: inline-flex;
+						align-items: center;
+						gap: 8px;
+						padding: 5px 8px;
+						border: 1px solid #454545;
+						border-radius: 4px;
+						background-color: #333333;
+						color: #fff;
+						cursor: pointer;
+						font: inherit;
+						font-size: 11px;
+				}
+				.color-picker-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+				.color-swatch {
+						width: 18px;
+						height: 18px;
+						border: 1px solid #888;
+						border-radius: 4px;
+				}
+				.color-input { display: none; }
+				.control-group select {
+						width: 100%;
+						padding: 7px 9px;
+						border-radius: 4px;
+						border: 1px solid #3c3c3c;
+						background-color: #3c3c3c;
+						color: #cccccc;
+						font: inherit;
+						font-size: 12px;
+				}
+				.slider-container { display: flex; align-items: center; width: 60%; }
+				.slider-control-group .slider-container { width: 100%; }
+				.slider-container input { flex: 1 1 auto; width: 0; min-width: 0; margin: 0 7px; }
+				.range-stepper {
+						flex: 0 0 24px;
+						width: 24px;
+						height: 24px;
+						padding: 0;
+						border: 1px solid #454545;
+						border-radius: 4px;
+						background: #333333;
+						color: #cccccc;
+						font: inherit;
+						font-size: 15px;
+						line-height: 1;
+						cursor: pointer;
+				}
+				.range-stepper:hover:not(:disabled) { border-color: #3794ff; color: #ffffff; }
+				.range-stepper:disabled { opacity: 0.4; cursor: not-allowed; }
+				.slider-value {
+						min-width: 36px;
+						text-align: right;
+						color: #75beff;
+						font-size: 11px;
+						font-variant-numeric: tabular-nums;
+				}
+				.nested-control { margin-left: 12px; }
+				.margin-slider-group { margin: 0 0 3px 12px; border-bottom: 0; }
+				#previewBackgroundGroup {
+						align-items: stretch;
+						flex-direction: column;
+						gap: 5px;
+						margin-top: 0;
+						border-bottom: 0;
+				}
+				.preview-pane {
+						display: flex;
+						flex-direction: column;
+						min-width: 0;
+						padding: 24px;
+						background: #1e1e1e;
+				}
+				.preview-toolbar {
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						gap: 12px;
+						margin-bottom: 16px;
+						color: #bbbbbb;
+						font-size: 12px;
+				}
+				.preview-toolbar-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+				.preview-toolbar-title::before {
+						content: "";
+						width: 7px;
+						height: 7px;
+						border-radius: 50%;
+						background: #3794ff;
+						box-shadow: 0 0 8px #3794ff88;
+				}
+				#status { margin-left: auto; color: #9da1a6; font-size: 11px; font-weight: 400; text-align: right; }
+				#result-container {
+						display: none;
+						min-height: 360px;
+						margin: 0;
+						padding: 24px;
+						border: 1px solid #333;
+						border-radius: 6px;
+						background-color: #181818;
+						background-image: radial-gradient(#303030 0.7px, transparent 0.7px);
+						background-size: 16px 16px;
+						text-align: center;
+						box-sizing: border-box;
+				}
+				#result-container h3 { margin: 0 0 12px; color: #bbbbbb; font-size: 12px; font-weight: 500; text-align: left; }
+				canvas {
+					display: block;
+					margin: 0 auto;
 					max-width: 100%;
-					border: 1px solid #444;
+					max-height: calc(100vh - 220px);
+					height: auto;
+					border: 1px solid #454545;
 					background-color: transparent;
 					background-image: conic-gradient(#111 25%, transparent 25% 50%, #111 50% 75%, transparent 75%);
-					background-size: 20px 20px;
-					border-radius: 6px;
-        }
-        canvas.whiteChecker {
+					background-size: 16px 16px;
+					border-radius: 3px;
+				}
+				canvas.whiteChecker {
 					background-color: #fff;
 					background-image: conic-gradient(#ddd 25%, transparent 25% 50%, #ddd 50% 75%, transparent 75%);
-					background-size: 20px 20px;
+					background-size: 16px 16px;
 				}
-        canvas.black { background-image: none; background-color: #000; }
-        canvas.white { background-image: none; background-color: #fff; }
-        canvas.green { background-image: none; background-color: #00c853; }
-        .btn {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 10px 20px;
-            background-color: #00e676;
-            color: #000;
-            font-weight: bold;
-            text-decoration: none;
-            border-radius: 5px;
-            cursor: pointer;
-            border: none;
-        }
-        .btn:hover { background-color: #00c853; }
-        #status { margin-top: 15px; color: #ffea00; font-weight: bold; }
-    </style>
+				canvas.black { background-image: none; background-color: #000; }
+				canvas.white { background-image: none; background-color: #fff; }
+				canvas.green { background-image: none; background-color: #00c853; }
+				.btn {
+						display: inline-block;
+						margin-top: 4px;
+						padding: 8px 16px;
+						background-color: #0e639c;
+						color: #fff;
+						font-weight: 600;
+						text-decoration: none;
+						border-radius: 4px;
+						cursor: pointer;
+						border: none;
+						font: inherit;
+						font-size: 12px;
+				}
+				.btn:hover { background-color: #1177bb; }
+				#imageDimensions { margin: 0; color: #858585; font-size: 11px; font-variant-numeric: tabular-nums; }
+				#downloadBtn { display: block; margin: 4px auto 0; }
+				@media (max-width: 760px) {
+						.workspace { grid-template-columns: minmax(0, 1fr); }
+						.settings-sidebar { border-right: 0; border-bottom: 1px solid #333; }
+						.preview-pane { min-height: 480px; padding: 18px; }
+						#result-container { min-height: 320px; }
+						canvas { max-height: 60vh; }
+				}
+				@media (max-width: 420px) {
+						.app-header { padding: 0 14px; }
+						.header-badge { font-size: 9px; }
+						.settings-sidebar { padding: 16px 12px; }
+						.preview-pane { padding: 14px 12px; }
+						.control-group label { font-size: 11px; }
+						.slider-container { width: 58%; }
+				}
+		</style>
 </head>
 <body>
 
 <div class="container">
-    <h1>이미지편집 LITE</h1>
-    <p>가볍고 빠른 속도, 로컬에서 이미지 처리. 서버 전송 없음.</p>
-    
-    <div class="drop-zone" id="dropZone">
-        이미지를 드래그 앤 드롭하거나 클릭하여 선택하세요.
-        <input type="file" id="fileInput" accept="image/png">
-    </div>
+		<header class="app-header">
+				<img class="app-mark" src="favicon.png" alt="">
+				<div>
+						<div class="app-title">이미지편집 LITE</div>
+						<div class="app-subtitle">로컬에서 빠르고 안전하게 편집</div>
+				</div>
+				<div class="header-badge">LOCAL · PNG</div>
+		</header>
 
-    <div class="control-panel">
-        <div class="control-group">
-            <label class="checkbox-container">
-                <input type="checkbox" id="useRemoveBackground"> 배경색 제거 적용하기
-            </label>
-        </div>
-        <div class="control-group" id="singleColorLogoGroup" style="margin: -10px 0 12px 20px; pointer-events: none;">
-            <label class="checkbox-container">
-                <input type="checkbox" id="useSingleColorLogoMode" disabled>
-                <span class="checkbox-label-text">단일 색 로고 모드</span>
-            </label>
-        </div>
-        <div class="control-group" id="thresholdSliderGroup" style="opacity: 0.5; pointer-events: none; margin-bottom: 20px;">
-            <label for="threshold">배경 임계값 (Threshold):</label>
-            <div class="slider-container">
-                <input type="range" id="threshold" min="1" max="500" value="50">
-                <span class="slider-value" id="thresholdValue">10</span>
-            </div>
-        </div>
-        <div class="control-group">
-            <label class="checkbox-container">
-                <input type="checkbox" id="useRemoveBackgroundStrong" disabled>
-                <span class="checkbox-label-text">배경색 제거 강화</span>
-            </label>
-        </div>
+		<div class="workspace">
+				<aside class="settings-sidebar">
+						<h2 class="section-heading">이미지 설정 <button type="button" class="reset-button" id="resetButton"><svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 6.2A5 5 0 1 1 3 9"/><path d="M3.2 2.8v3.7h3.7"/></svg><span>리셋</span></button></h2>
+						<div class="control-panel">
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useRemoveBackground"> 배경색 제거 적용하기
+						</label>
+				</div>
+				<div class="expandable" id="backgroundOptions">
+						<div class="expandable-content">
+								<div class="control-group nested-control" id="singleColorLogoGroup">
+										<label class="checkbox-container">
+												<input type="checkbox" id="useSingleColorLogoMode" disabled>
+												<span class="checkbox-label-text">단일 색 로고 모드</span>
+										</label>
+										<div class="expandable" id="logoColorOptions">
+												<div class="expandable-content">
+														<button type="button" class="color-picker-btn" id="colorPickerButton" disabled aria-label="로고 색상 선택">
+																<span class="color-swatch" id="colorSwatch" style="background-color: #ffffff;"></span>
+																<span>색상</span>
+														</button>
+												</div>
+										</div>
+										<input type="color" class="color-input" id="logoColor" value="#ffffff" aria-label="로고 색상">
+								</div>
+								<div class="control-group nested-control">
+										<label class="checkbox-container">
+												<input type="checkbox" id="useRemoveBackgroundStrong" disabled>
+												<span class="checkbox-label-text">이미지 안쪽의 배경색 제거</span>
+										</label>
+								</div>
+								<div class="control-group slider-control-group nested-control" id="thresholdSliderGroup" style="margin-bottom: 20px;">
+										<label for="threshold">배경 임계값 (Threshold):</label>
+										<div class="slider-container">
+												<input type="range" id="threshold" min="1" max="500" step="0.5" data-step-label="0.1" value="50" disabled>
+												<span class="slider-value" id="thresholdValue">10.0</span>
+										</div>
+								</div>
+						</div>
+				</div>
 
-        <div class="control-group">
-            <label class="checkbox-container">
-                <input type="checkbox" id="useGaussianBlur"> 가우시안 블러 적용하기
-            </label>
-        </div>
-        <div class="control-group" id="blurSliderGroup" style="opacity: 0.5; pointer-events: none; margin-bottom: 20px;">
-            <label for="blurRadius">블러 반지름 (Radius):</label>
-            <div class="slider-container">
-                <input type="range" id="blurRadius" min="1" max="20" value="5">
-                <span class="slider-value" id="blurValue">5</span>
-            </div>
-        </div>
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useGaussianBlur"> 가우시안 블러 적용하기
+						</label>
+				</div>
+				<div class="expandable" id="blurSliderGroup">
+						<div class="expandable-content">
+								<div class="control-group slider-control-group nested-control" style="margin-bottom: 20px;">
+										<label for="blurRadius">블러 반지름 (Radius):</label>
+										<div class="slider-container">
+												<input type="range" id="blurRadius" min="0.1" max="10" step="0.1" value="1" disabled>
+												<span class="slider-value" id="blurValue">1.0</span>
+										</div>
+								</div>
+						</div>
+				</div>
 
-        <div class="control-group">
-            <label class="checkbox-container">
-                <input type="checkbox" id="useInvert"> 색상 반전 (Invert) 적용하기
-            </label>
-        </div>
-    </div>
-		<div class="control-group">
-				<label for="previewBackground">배경:</label>
-				<select id="previewBackground">
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useInvert"> 색상 반전 적용하기
+						</label>
+				</div>
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useRobloxBorderRemoval">
+								<span class="checkbox-label-text">로블록스용 테두리 제거</span>
+						</label>
+				</div>
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useTransparentMargins">
+								<span class="checkbox-label-text">상하좌우 투명 공백 추가</span>
+						</label>
+				</div>
+				<div class="expandable" id="transparentMarginsGroup">
+						<div class="expandable-content">
+								<div class="control-group margin-slider-group">
+										<label for="marginAll">전체 공백 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="marginAll" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="marginAllValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="marginTop">위쪽 공백 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="marginTop" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="marginTopValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="marginBottom">아래쪽 공백 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="marginBottom" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="marginBottomValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="marginLeft">왼쪽 공백 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="marginLeft" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="marginLeftValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="marginRight">오른쪽 공백 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="marginRight" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="marginRightValue">0</span>
+										</div>
+								</div>
+						</div>
+				</div>
+						<div class="control-group" id="previewBackgroundGroup">
+								<label for="previewBackground">미리보기 배경</label>
+								<select id="previewBackground">
 						<option value="blackChecker">검은 체크무늬</option>
 						<option value="whiteChecker">흰 체크무늬</option>
 						<option value="black">검은색</option>
 						<option value="white">흰색</option>
 						<option value="green">초록색</option>
-				</select>
+								</select>
+						</div>
+				</aside>
+
+				<main class="preview-pane">
+						<div class="preview-toolbar">
+								<div class="preview-toolbar-title">미리보기</div>
+								<div id="status" aria-live="polite"></div>
+						</div>
+						<div class="drop-zone" id="dropZone">
+								이미지를 드래그 앤 드롭하거나 클릭하여 선택하세요.
+								<input type="file" id="fileInput" accept="image/png">
+						</div>
+						<div id="result-container">
+								<h3>수정된 이미지 결과</h3>
+								<canvas id="canvas"></canvas>
+								<p id="imageDimensions" aria-live="polite"></p>
+								<button class="btn" id="downloadBtn">수정된 이미지 다운로드</button>
+						</div>
+				</main>
 		</div>
-
-    <button class="btn" id="processBtn" style="background-color: #00b0ff; color: white; display:none; margin-bottom: 15px;">설정 적용하여 다시 처리</button>
-
-    <div id="status"></div>
-
-    <div id="result-container">
-        <h3>수정된 이미지 결과</h3>
-        <canvas id="canvas"></canvas>
-        <br>
-        <button class="btn" id="downloadBtn">수정된 이미지 다운로드</button>
-    </div>
 </div>
 
 <script>
-    // --- 1. 수동 PNG 인코더 모듈 (브라우저 최적화 우회용) ---
-    (function (globalObj) {
-        'use strict';
-        var DEFLATE_METHOD = String.fromCharCode(0x78, 0x01),
-            CRC_TABLE = [],
-            SIGNATURE = String.fromCharCode(137, 80, 78, 71, 13, 10, 26, 10),
-            NO_FILTER = String.fromCharCode(0),
-            make_crc_table = function () {
-                var n, c, k;
-                for (n = 0; n < 256; n++) {
-                    c = n;
-                    for (k = 0; k < 8; k++) {
-                        if (c & 1) c = 0xedb88320 ^ (c >>> 1);
-                        else c = c >>> 1;
-                    }
-                    CRC_TABLE[n] = c;
-                }
-            },
-            inflateStore = function (data) {
-                var MAX_STORE_LENGTH = 65535, storeBuffer = '', i, remaining, blockType;
-                for (i = 0; i < data.length; i += MAX_STORE_LENGTH) {
-                    remaining = data.length - i;
-                    if (remaining <= MAX_STORE_LENGTH) blockType = String.fromCharCode(0x01);
-                    else { remaining = MAX_STORE_LENGTH; blockType = String.fromCharCode(0x00); }
-                    storeBuffer += blockType + String.fromCharCode((remaining & 0xFF), (remaining & 0xFF00) >>> 8);
-                    storeBuffer += String.fromCharCode(((~remaining) & 0xFF), ((~remaining) & 0xFF00) >>> 8);
-                    storeBuffer += data.substring(i, i + remaining);
-                }
-                return storeBuffer;
-            },
-            adler32 = function (data) {
-                var MOD_ADLER = 65521, a = 1, b = 0, i;
-                for (i = 0; i < data.length; i++) {
-                    a = (a + data.charCodeAt(i)) % MOD_ADLER;
-                    b = (b + a) % MOD_ADLER;
-                }
-                return (b << 16) | a;
-            },
-            update_crc = function (crc, buf) {
-                var c = crc, n, b;
-                for (n = 0; n < buf.length; n++) {
-                    b = buf.charCodeAt(n);
-                    c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
-                }
-                return c;
-            },
-            crc = function crc(buf) { return update_crc(0xffffffff, buf) ^ 0xffffffff; },
-            dwordAsString = function (dword) {
-                return String.fromCharCode((dword & 0xFF000000) >>> 24, (dword & 0x00FF0000) >>> 16, (dword & 0x0000FF00) >>> 8, (dword & 0x000000FF));
-            },
-            createChunk = function (length, type, data) {
-                var CRC = crc(type + data);
-                return dwordAsString(length) + type + data + dwordAsString(CRC);
-            },
-            IEND,
-            createIHDR = function (width, height) {
-                var IHDRdata = dwordAsString(width) + dwordAsString(height);
-                IHDRdata += String.fromCharCode(8) + String.fromCharCode(6) + String.fromCharCode(0) + String.fromCharCode(0) + String.fromCharCode(0);
-                return createChunk(13, 'IHDR', IHDRdata);
-            },
-            png = function (width, height, rgba) {
-                var IHDR = createIHDR(width, height), IDAT, scanlines = '', scanline, y, x, compressedScanlines;
-                for (y = 0; y < rgba.length; y += width * 4) {
-                    scanline = NO_FILTER;
-                    if (Array.isArray(rgba)) {
-                        for (x = 0; x < width * 4; x++) scanline += String.fromCharCode(rgba[y + x] & 0xff);
-                    } else {
-                        scanline += rgba.substr(y, width * 4);
-                    }
-                    scanlines += scanline;
-                }
-                compressedScanlines = DEFLATE_METHOD + inflateStore(scanlines) + dwordAsString(adler32(scanlines));
-                IDAT = createChunk(compressedScanlines.length, 'IDAT', compressedScanlines);
-                return SIGNATURE + IHDR + IDAT + IEND;
-            };
-        make_crc_table();
-        IEND = createChunk(0, 'IEND', '');
-        globalObj.generatePng = png;
-    }(window));
+		// --- 1. 수동 PNG 인코더 모듈 (브라우저 최적화 우회용) ---
+		(function (globalObj) {
+				'use strict';
+				var DEFLATE_METHOD = String.fromCharCode(0x78, 0x01),
+						CRC_TABLE = [],
+						SIGNATURE = String.fromCharCode(137, 80, 78, 71, 13, 10, 26, 10),
+						NO_FILTER = String.fromCharCode(0),
+						make_crc_table = function () {
+								var n, c, k;
+								for (n = 0; n < 256; n++) {
+										c = n;
+										for (k = 0; k < 8; k++) {
+												if (c & 1) c = 0xedb88320 ^ (c >>> 1);
+												else c = c >>> 1;
+										}
+										CRC_TABLE[n] = c;
+								}
+						},
+						inflateStore = function (data) {
+								var MAX_STORE_LENGTH = 65535, storeBuffer = '', i, remaining, blockType;
+								for (i = 0; i < data.length; i += MAX_STORE_LENGTH) {
+										remaining = data.length - i;
+										if (remaining <= MAX_STORE_LENGTH) blockType = String.fromCharCode(0x01);
+										else { remaining = MAX_STORE_LENGTH; blockType = String.fromCharCode(0x00); }
+										storeBuffer += blockType + String.fromCharCode((remaining & 0xFF), (remaining & 0xFF00) >>> 8);
+										storeBuffer += String.fromCharCode(((~remaining) & 0xFF), ((~remaining) & 0xFF00) >>> 8);
+										storeBuffer += data.substring(i, i + remaining);
+								}
+								return storeBuffer;
+						},
+						adler32 = function (data) {
+								var MOD_ADLER = 65521, a = 1, b = 0, i;
+								for (i = 0; i < data.length; i++) {
+										a = (a + data.charCodeAt(i)) % MOD_ADLER;
+										b = (b + a) % MOD_ADLER;
+								}
+								return (b << 16) | a;
+						},
+						update_crc = function (crc, buf) {
+								var c = crc, n, b;
+								for (n = 0; n < buf.length; n++) {
+										b = buf.charCodeAt(n);
+										c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+								}
+								return c;
+						},
+						crc = function crc(buf) { return update_crc(0xffffffff, buf) ^ 0xffffffff; },
+						dwordAsString = function (dword) {
+								return String.fromCharCode((dword & 0xFF000000) >>> 24, (dword & 0x00FF0000) >>> 16, (dword & 0x0000FF00) >>> 8, (dword & 0x000000FF));
+						},
+						createChunk = function (length, type, data) {
+								var CRC = crc(type + data);
+								return dwordAsString(length) + type + data + dwordAsString(CRC);
+						},
+						IEND,
+						createIHDR = function (width, height) {
+								var IHDRdata = dwordAsString(width) + dwordAsString(height);
+								IHDRdata += String.fromCharCode(8) + String.fromCharCode(6) + String.fromCharCode(0) + String.fromCharCode(0) + String.fromCharCode(0);
+								return createChunk(13, 'IHDR', IHDRdata);
+						},
+						png = function (width, height, rgba) {
+								var IHDR = createIHDR(width, height), IDAT, scanlines = '', scanline, y, x, compressedScanlines;
+								for (y = 0; y < rgba.length; y += width * 4) {
+										scanline = NO_FILTER;
+										if (Array.isArray(rgba)) {
+												for (x = 0; x < width * 4; x++) scanline += String.fromCharCode(rgba[y + x] & 0xff);
+										} else {
+												scanline += rgba.substr(y, width * 4);
+										}
+										scanlines += scanline;
+								}
+								compressedScanlines = DEFLATE_METHOD + inflateStore(scanlines) + dwordAsString(adler32(scanlines));
+								IDAT = createChunk(compressedScanlines.length, 'IDAT', compressedScanlines);
+								return SIGNATURE + IHDR + IDAT + IEND;
+						};
+				make_crc_table();
+				IEND = createChunk(0, 'IEND', '');
+				globalObj.generatePng = png;
+		}(window));
 
-    function rawImageDataToString(data) {
-        let s = "";
-        const chunk = 8192;
-        for (let i = 0; i < data.length; i += chunk) {
-            s += String.fromCharCode.apply(null, data.subarray(i, i + chunk));
-        }
-        return s;
-    }
+		function rawImageDataToString(data) {
+				let s = "";
+				const chunk = 8192;
+				for (let i = 0; i < data.length; i += chunk) {
+						s += String.fromCharCode.apply(null, data.subarray(i, i + chunk));
+				}
+				return s;
+		}
 
-    // --- 2. 메인 로직 및 UI 인터랙션 ---
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
-    const resultContainer = document.getElementById('result-container');
-    const status = document.getElementById('status');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const processBtn = document.getElementById('processBtn');
-    const previewBackground = document.getElementById('previewBackground');
-    
-    let currentFile = null;
-    let originalImage = null;
+		// --- 2. 메인 로직 및 UI 인터랙션 ---
+		const dropZone = document.getElementById('dropZone');
+		const fileInput = document.getElementById('fileInput');
+		const canvas = document.getElementById('canvas');
+		const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+		const resultContainer = document.getElementById('result-container');
+		const imageDimensions = document.getElementById('imageDimensions');
+		const status = document.getElementById('status');
+		const downloadBtn = document.getElementById('downloadBtn');
+		const previewBackground = document.getElementById('previewBackground');
+		const backgroundOptions = document.getElementById('backgroundOptions');
+		const threshold = document.getElementById('threshold');
+		const singleColorLogoMode = document.getElementById('useSingleColorLogoMode');
+		const logoColorOptions = document.getElementById('logoColorOptions');
+		const colorPickerButton = document.getElementById('colorPickerButton');
+		const logoColor = document.getElementById('logoColor');
+		const colorSwatch = document.getElementById('colorSwatch');
+		const gaussianBlur = document.getElementById('useGaussianBlur');
+		const blurRadius = document.getElementById('blurRadius');
+		const useTransparentMargins = document.getElementById('useTransparentMargins');
+		const transparentMarginsGroup = document.getElementById('transparentMarginsGroup');
+		const marginAll = document.getElementById('marginAll');
+		const marginSliders = ['marginTop', 'marginBottom', 'marginLeft', 'marginRight']
+				.map((id) => document.getElementById(id));
+		
+		let currentFile = null;
+		let originalImage = null;
+		let isResettingCheckboxes = false;
 
-    document.getElementById('threshold').addEventListener('input', (e) => {
-        document.getElementById('thresholdValue').innerText = Math.round(e.target.value * 0.2);
-    });
-    document.getElementById('blurRadius').addEventListener('input', (e) => {
-        document.getElementById('blurValue').innerText = e.target.value;
-    });
+		document.querySelectorAll('.slider-container input[type="range"]').forEach((slider) => {
+				const label = document.querySelector(`label[for="${slider.id}"]`)?.innerText.trim() || slider.id;
+				const step = Number(slider.step) || 1;
+				const stepLabel = slider.dataset.stepLabel || step;
+				const precision = (slider.step.split('.')[1] || '').length;
+				const createStepper = (direction, symbol, action) => {
+						const button = document.createElement('button');
+						button.type = 'button';
+						button.className = 'range-stepper';
+						button.textContent = symbol;
+						button.setAttribute('aria-label', `${label}: ${stepLabel} ${action}`);
+						button.disabled = slider.disabled;
+						button.addEventListener('click', () => {
+								const min = Number(slider.min);
+								const max = Number(slider.max);
+								const current = Number(slider.value);
+								const next = Math.min(max, Math.max(min, current + direction * step));
+								if (next === current) return;
+								slider.value = next.toFixed(precision);
+								slider.dispatchEvent(new Event('input', { bubbles: true }));
+								slider.dispatchEvent(new Event('change', { bubbles: true }));
+						});
+						return button;
+				};
 
-    // 배경색 제거 체크박스 이벤트
-    document.getElementById('useRemoveBackground').addEventListener('change', (e) => {
-        const thresholdSliderGroup = document.getElementById('thresholdSliderGroup');
-        const singleColorLogoGroup = document.getElementById('singleColorLogoGroup');
-        const singleColorLogoMode = document.getElementById('useSingleColorLogoMode');
-        const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong');
+				slider.insertAdjacentElement('beforebegin', createStepper(-1, '−', '감소'));
+				slider.insertAdjacentElement('afterend', createStepper(1, '+', '증가'));
+				slider.addEventListener('change', () => {
+						slider.parentElement.querySelectorAll('.range-stepper').forEach((button) => {
+								button.disabled = slider.disabled;
+						});
+				});
+		});
 
-        thresholdSliderGroup.style.opacity = e.target.checked ? '1' : '0.5';
-        thresholdSliderGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
-        singleColorLogoGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
-        strongBackgroundRemove.disabled = !e.target.checked;
-        singleColorLogoMode.disabled = !e.target.checked;
+		function setRangeDisabled(slider, disabled) {
+				slider.disabled = disabled;
+				slider.parentElement.querySelectorAll('.range-stepper').forEach((button) => {
+						button.disabled = disabled;
+				});
+		}
 
-        if (!e.target.checked) {
-            strongBackgroundRemove.checked = false;
-            singleColorLogoMode.checked = false;
-        }
-    });
+		document.getElementById('threshold').addEventListener('input', (e) => {
+				document.getElementById('thresholdValue').innerText = (Number(e.target.value) * 0.2).toFixed(1);
+		});
+		document.getElementById('threshold').addEventListener('change', () => {
+				if (originalImage) runImageProcessing();
+		});
+		document.getElementById('blurRadius').addEventListener('input', (e) => {
+				document.getElementById('blurValue').innerText = Number(e.target.value).toFixed(1);
+		});
+		document.getElementById('blurRadius').addEventListener('change', () => {
+				if (originalImage) runImageProcessing();
+		});
+		marginSliders.forEach((slider) => {
+				const value = document.getElementById(`${slider.id}Value`);
+				slider.addEventListener('input', () => {
+						value.innerText = slider.value;
+				});
+				slider.addEventListener('change', () => {
+						if (originalImage) runImageProcessing();
+				});
+		});
+		marginAll.addEventListener('input', () => {
+				document.getElementById('marginAllValue').innerText = marginAll.value;
+				marginSliders.forEach((slider) => {
+						slider.value = marginAll.value;
+						document.getElementById(`${slider.id}Value`).innerText = marginAll.value;
+				});
+		});
+		marginAll.addEventListener('change', () => {
+				if (originalImage) runImageProcessing();
+		});
 
-    // 가우시안 블러 체크박스 이벤트 추가
-    document.getElementById('useGaussianBlur').addEventListener('change', (e) => {
-        document.getElementById('blurSliderGroup').style.opacity = e.target.checked ? '1' : '0.5';
-        document.getElementById('blurSliderGroup').style.pointerEvents = e.target.checked ? 'auto' : 'none';
-    });
+		document.querySelector('.control-panel').addEventListener('change', (e) => {
+				if (e.target.matches('input[type="checkbox"]') && originalImage && !isResettingCheckboxes) {
+						runImageProcessing();
+				}
+		});
 
-    previewBackground.addEventListener('change', () => updateCanvasPreviewBackground());
+		document.getElementById('resetButton').addEventListener('click', () => {
+				isResettingCheckboxes = true;
+				try {
+						document.querySelectorAll('.control-panel input[type="checkbox"]').forEach((checkbox) => {
+								if (!checkbox.checked) return;
+								checkbox.checked = false;
+								checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+						});
+				} finally {
+						isResettingCheckboxes = false;
+				}
+				if (originalImage) runImageProcessing();
+		});
 
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#00e676'; });
-    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#00b0ff'; });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault(); dropZone.style.borderColor = '#00b0ff';
-        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
-    processBtn.addEventListener('click', () => { if (originalImage) runImageProcessing(); });
+		// 배경색 제거 체크박스 이벤트
+		document.getElementById('useRemoveBackground').addEventListener('change', (e) => {
+				const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong');
+				backgroundOptions.classList.toggle('is-expanded', e.target.checked);
+				setRangeDisabled(threshold, !e.target.checked);
+				strongBackgroundRemove.disabled = !e.target.checked;
+				singleColorLogoMode.disabled = !e.target.checked;
 
-    function handleFile(file) {
-        if (file.type !== 'image/png') { status.innerText = 'PNG 형식만 지원합니다!'; return; }
-        currentFile = file;
-        status.innerText = '이미지 로드 중...';
-        const img = new Image();
-        img.onload = function() {
-            originalImage = img;
-            processBtn.style.display = 'inline-block';
-            runImageProcessing();
-        };
-        img.src = URL.createObjectURL(file);
-    }
+				if (!e.target.checked) {
+						strongBackgroundRemove.checked = false;
+						singleColorLogoMode.checked = false;
+						logoColorOptions.classList.remove('is-expanded');
+						colorPickerButton.disabled = true;
+				}
+		});
 
-    function runImageProcessing() {
-        status.innerText = '이미지 처리 중... 잠시만 기다려주세요.';
-        resultContainer.style.display = 'none';
+		singleColorLogoMode.addEventListener('change', () => {
+				logoColorOptions.classList.toggle('is-expanded', singleColorLogoMode.checked);
+				colorPickerButton.disabled = !singleColorLogoMode.checked;
+		});
 
-        setTimeout(() => {
-            canvas.width = originalImage.width;
-            canvas.height = originalImage.height;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(originalImage, 0, 0);
+		colorPickerButton.addEventListener('click', () => logoColor.click());
+		logoColor.addEventListener('change', () => {
+				colorSwatch.style.backgroundColor = logoColor.value;
+				if (originalImage && singleColorLogoMode.checked) runImageProcessing();
+		});
 
-            let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // [1단계] 배경색 제거
-            if (document.getElementById('useRemoveBackground').checked) {
-                const threshold = parseInt(document.getElementById('threshold').value);
-                const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong').checked;
-                const singleColorLogoMode = document.getElementById('useSingleColorLogoMode').checked;
-                removeBackground(imgData, imgData.data[0], imgData.data[1], imgData.data[2], threshold, strongBackgroundRemove, singleColorLogoMode);
-            }
+		// 가우시안 블러 체크박스 이벤트 추가
+		gaussianBlur.addEventListener('change', () => {
+				document.getElementById('blurSliderGroup').classList.toggle('is-expanded', gaussianBlur.checked);
+				setRangeDisabled(blurRadius, !gaussianBlur.checked);
+		});
 
-            // [2단계] 가우시안 블러 효과 적용 (체크박스가 켜진 경우에만 실행)
-            if (document.getElementById('useGaussianBlur').checked) {
-                const blurRadius = parseInt(document.getElementById('blurRadius').value);
-                if (blurRadius > 0) {
-                    applyGaussianBlur(imgData, blurRadius);
-                }
-            }
+		useTransparentMargins.addEventListener('change', () => {
+				const enabled = useTransparentMargins.checked;
+				transparentMarginsGroup.classList.toggle('is-expanded', enabled);
+				setRangeDisabled(marginAll, !enabled);
+				marginSliders.forEach((slider) => {
+						setRangeDisabled(slider, !enabled);
+				});
+		});
 
-            // [3단계] 색상 반전 (Invert) 적용
-            if (document.getElementById('useInvert').checked) {
-                applyInvert(imgData);
-            }
+		previewBackground.addEventListener('change', () => updateCanvasPreviewBackground());
 
-            // [4단계] 알파 블리딩 (테두리 찌꺼기 픽스)
-            alphaBleed(imgData);
+		dropZone.addEventListener('click', () => fileInput.click());
+		dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#00e676'; });
+		dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#00b0ff'; });
+		dropZone.addEventListener('drop', (e) => {
+				e.preventDefault(); dropZone.style.borderColor = '#00b0ff';
+				if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+		});
+		fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
 
-            // 처리된 데이터를 시각적 화면 렌더링용으로 캔버스에 출력
-            ctx.putImageData(imgData, 0, 0);
-            
-            // 수동 PNG 인코더로 브라우저의 무손실 물리 데이터 백업 생성
-            const datBase64 = btoa(window.generatePng(canvas.width, canvas.height, rawImageDataToString(imgData.data)));
+		function handleFile(file) {
+				if (file.type !== 'image/png') { status.innerText = 'PNG 형식만 지원합니다!'; return; }
+				currentFile = file;
+				status.innerText = '이미지 로드 중...';
+				const img = new Image();
+				img.onload = function() {
+						try {
+								originalImage = img;
+								marginSliders.forEach((slider, index) => {
+										const dimension = index < 2 ? img.naturalHeight : img.naturalWidth;
+										slider.max = dimension;
+										marginAll.max = Math.min(Number(marginAll.max), dimension);
+										if (Number(slider.value) > dimension) {
+												slider.value = dimension;
+												document.getElementById(`${slider.id}Value`).innerText = dimension;
+										}
+								});
+								if (Number(marginAll.value) > Number(marginAll.max)) {
+										marginAll.value = marginAll.max;
+										document.getElementById('marginAllValue').innerText = marginAll.max;
+								}
+								runImageProcessing();
+						} catch (error) {
+								console.error('Image loading failed:', error);
+								status.innerText = '이미지 초기화 중 오류가 발생했습니다.';
+						}
+				};
+				img.onerror = function() {
+						status.innerText = '이미지를 불러오지 못했습니다. PNG 파일을 다시 선택해주세요.';
+				};
+				img.src = URL.createObjectURL(file);
+		}
 
-            status.innerText = '처리 완료!';
-            resultContainer.style.display = 'block';
-            updateCanvasPreviewBackground();
+		function runImageProcessing() {
+				if (!originalImage) return;
+				status.innerText = '이미지 처리 중... 잠시만 기다려주세요.';
 
-            downloadBtn.onclick = () => {
-                const link = document.createElement('a');
-                link.download = 'processed_' + (currentFile ? currentFile.name : 'image.png');
-                link.href = "data:image/png;base64," + datBase64;
-                link.click();
-            };
-        }, 50);
-    }
+				requestAnimationFrame(() => requestAnimationFrame(() => {
+						try {
+						const workingCanvas = document.createElement('canvas');
+						workingCanvas.width = originalImage.width;
+						workingCanvas.height = originalImage.height;
+						const workingCtx = workingCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+						workingCtx.drawImage(originalImage, 0, 0);
 
-    // --- 3. 이미지 필터 함수들 ---
+						let imgData = workingCtx.getImageData(0, 0, workingCanvas.width, workingCanvas.height);
+						const backgroundColor = [imgData.data[0], imgData.data[1], imgData.data[2]];
+						let sourceLeft = 0;
+						let sourceTop = 0;
+						const sourceWidth = imgData.width;
+						const sourceHeight = imgData.height;
 
-    // 배경 제거 알고리즘 + 단일 색 로고 보정
-    function removeBackground(imgData, targetR, targetG, targetB, threshold, strong, singleColorLogoMode) {
-        const width = imgData.width, height = imgData.height, data = imgData.data;
+						if (useTransparentMargins.checked) {
+								const top = Number(document.getElementById('marginTop').value);
+								const bottom = Number(document.getElementById('marginBottom').value);
+								const left = Number(document.getElementById('marginLeft').value);
+								const right = Number(document.getElementById('marginRight').value);
+								sourceLeft = left;
+								sourceTop = top;
+								imgData = applyTransparentMargins(imgData, top, bottom, left, right);
+						}
+						
+						// [1단계] 배경색 제거
+						if (document.getElementById('useRemoveBackground').checked) {
+								const threshold = parseFloat(document.getElementById('threshold').value);
+								const strongBackgroundRemove = document.getElementById('useRemoveBackgroundStrong').checked;
+								removeBackground(
+										imgData,
+										backgroundColor[0],
+										backgroundColor[1],
+										backgroundColor[2],
+										threshold,
+										strongBackgroundRemove,
+										sourceLeft,
+										sourceTop,
+										sourceWidth,
+										sourceHeight
+								);
+						}
 
-        function isBackground(idx) {
-            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-            return Math.sqrt(Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)) < threshold;
-        }
+						// [2단계] 가우시안 블러 효과 적용 (체크박스가 켜진 경우에만 실행)
+						if (document.getElementById('useGaussianBlur').checked) {
+								const blurRadius = parseFloat(document.getElementById('blurRadius').value);
+								if (blurRadius > 0) {
+										applyGaussianBlur(imgData, blurRadius);
+								}
+						}
 
-        const visited = new Uint8Array(width * height);
-        const queue = [];
+						// [3단계] 색상 반전 (Invert) 적용
+						if (document.getElementById('useInvert').checked) {
+								applyInvert(imgData);
+						}
 
-        for (let x = 0; x < width; x++) {
-            let idx = (0 * width + x) * 4;
-            if (isBackground(idx)) { queue.push(x, 0); visited[x] = 1; }
-            idx = ((height - 1) * width + x) * 4;
-            if (isBackground(idx)) { queue.push(x, height - 1); visited[(height - 1) * width + x] = 1; }
-        }
-        for (let y = 0; y < height; y++) {
-            let idx = (y * width + 0) * 4;
-            if (!visited[y * width + 0] && isBackground(idx)) { queue.push(0, y); visited[y * width + 0] = 1; }
-            idx = (y * width + (width - 1)) * 4;
-            if (!visited[y * width + (width - 1)] && isBackground(idx)) { queue.push(width - 1, y); visited[y * width + (width - 1)] = 1; }
-        }
+						if (document.getElementById('useRemoveBackground').checked && singleColorLogoMode.checked) {
+								applySingleColorLogo(imgData, logoColor.value);
+						}
 
-        let head = 0;
-        const neighbors = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
-        while (head < queue.length) {
-            const cx = queue[head++], cy = queue[head++];
-            data[(cy * width + cx) * 4 + 3] = 0;
+						// 마지막 처리: 로블록스용 테두리 픽셀 보정
+						if (document.getElementById('useRobloxBorderRemoval').checked) {
+								alphaBleed(imgData);
+						}
 
-            for (const n of neighbors) {
-                const nx = cx + n.x, ny = cy + n.y;
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                    const vIdx = ny * width + nx;
-                    if (!visited[vIdx] && isBackground(vIdx * 4)) {
-                        visited[vIdx] = 1;
-                        queue.push(nx, ny);
-                    }
-                }
-            }
-        }
+						// 처리가 끝난 뒤에만 화면 결과를 교체
+						canvas.width = imgData.width;
+						canvas.height = imgData.height;
+						ctx.putImageData(imgData, 0, 0);
+						imageDimensions.innerText = `${imgData.width} × ${imgData.height} px`;
+						
+						status.innerText = '처리 완료!';
+						resultContainer.style.display = 'block';
+						updateCanvasPreviewBackground();
 
-        if (strong) {
-            for (let idx = 0; idx < data.length; idx += 4) {
-                if (isBackground(idx)) {
-                    data[idx + 3] = 0;
-                }
-            }
-        }
+						downloadBtn.onclick = () => {
+								canvas.toBlob((blob) => {
+										if (!blob) {
+												status.innerText = '이미지 다운로드용 파일을 만들지 못했습니다.';
+												return;
+										}
+										const link = document.createElement('a');
+										const blobUrl = URL.createObjectURL(blob);
+										link.download = 'processed_' + (currentFile ? currentFile.name : 'image.png');
+										link.href = blobUrl;
+										link.click();
+										setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+								}, 'image/png');
+						};
+						} catch (error) {
+								console.error('Image processing failed:', error);
+								status.innerText = '이미지 처리 중 오류가 발생했습니다. 더 작은 이미지로 다시 시도해주세요.';
+						}
+				}));
+		}
 
-        if (singleColorLogoMode) {
-            const colorCounts = new Map();
-            for (let idx = 0; idx < data.length; idx += 4) {
-                if (data[idx + 3] <= 0) continue;
-                const key = `${data[idx]},${data[idx + 1]},${data[idx + 2]}`;
-                colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-            }
+		// --- 3. 이미지 필터 함수들 ---
 
-            let dominantKey = null;
-            let dominantCount = -1;
-            colorCounts.forEach((count, key) => {
-                if (count > dominantCount) {
-                    dominantCount = count;
-                    dominantKey = key;
-                }
-            });
+		// 배경 제거 알고리즘 + 단일 색 로고 보정
+		function removeBackground(imgData, targetR, targetG, targetB, threshold, strong, sourceLeft, sourceTop, sourceWidth, sourceHeight) {
+				const width = imgData.width, height = imgData.height, data = imgData.data;
+				const sourceRight = sourceLeft + sourceWidth;
+				const sourceBottom = sourceTop + sourceHeight;
 
-            if (dominantKey) {
-                const [dominantR, dominantG, dominantB] = dominantKey.split(',').map(Number);
-                for (let idx = 0; idx < data.length; idx += 4) {
-                    if (data[idx + 3] <= 0) continue;
-                    data[idx] = dominantR;
-                    data[idx + 1] = dominantG;
-                    data[idx + 2] = dominantB;
-                }
-            }
-        }
-    }
+				function isBackground(idx) {
+						const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+						return Math.sqrt(Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)) < threshold;
+				}
 
-    // 가우시안 블러 알고리즘 (알파 채널 보존형)
-    function applyGaussianBlur(imgData, radius) {
-        const data = imgData.data;
-        const width = imgData.width;
-        const height = imgData.height;
-        const tmp = new Uint8ClampedArray(data.length);
-        
-        // 가우시안 커널 생성
-        const rs = Math.ceil(radius * 2.57);
-        const kernel = [];
-        let kernelSum = 0;
-        for (let i = -radius; i <= radius; i++) {
-            const g = Math.exp(-(i * i) / (2 * radius * radius));
-            kernel.push(g);
-            kernelSum += g;
-        }
-        for (let i = 0; i < kernel.length; i++) kernel[i] /= kernelSum;
+				const visited = new Uint8Array(width * height);
+				const queue = [];
 
-        // 수평 블러
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                let r = 0, g = 0, b = 0, a = 0;
-                for (let k = -radius; k <= radius; k++) {
-                    const kx = Math.min(width - 1, Math.max(0, x + k));
-                    const idx = (y * width + kx) * 4;
-                    const weight = kernel[k + radius];
-                    r += data[idx] * weight;
-                    g += data[idx + 1] * weight;
-                    b += data[idx + 2] * weight;
-                    a += data[idx + 3] * weight;
-                }
-                const tidx = (y * width + x) * 4;
-                tmp[tidx] = r; tmp[tidx + 1] = g; tmp[tidx + 2] = b; tmp[tidx + 3] = a;
-            }
-        }
+				for (let x = sourceLeft; x < sourceRight; x++) {
+						let idx = (sourceTop * width + x) * 4;
+						if (isBackground(idx)) { queue.push(x, sourceTop); visited[sourceTop * width + x] = 1; }
+						idx = ((sourceBottom - 1) * width + x) * 4;
+						if (isBackground(idx)) { queue.push(x, sourceBottom - 1); visited[(sourceBottom - 1) * width + x] = 1; }
+				}
+				for (let y = sourceTop; y < sourceBottom; y++) {
+						let idx = (y * width + sourceLeft) * 4;
+						if (!visited[y * width + sourceLeft] && isBackground(idx)) { queue.push(sourceLeft, y); visited[y * width + sourceLeft] = 1; }
+						idx = (y * width + (sourceRight - 1)) * 4;
+						if (!visited[y * width + (sourceRight - 1)] && isBackground(idx)) { queue.push(sourceRight - 1, y); visited[y * width + (sourceRight - 1)] = 1; }
+				}
 
-        // 수직 블러 및 원본 복사
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                let r = 0, g = 0, b = 0, a = 0;
-                for (let k = -radius; k <= radius; k++) {
-                    const ky = Math.min(height - 1, Math.max(0, y + k));
-                    const idx = (ky * width + x) * 4;
-                    const weight = kernel[k + radius];
-                    r += tmp[idx] * weight;
-                    g += tmp[idx + 1] * weight;
-                    b += tmp[idx + 2] * weight;
-                    a += tmp[idx + 3] * weight;
-                }
-                const oidx = (y * width + x) * 4;
-                data[oidx] = r; data[oidx + 1] = g; data[oidx + 2] = b; data[oidx + 3] = a;
-            }
-        }
-    }
+				let head = 0;
+				const neighbors = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
+				while (head < queue.length) {
+						const cx = queue[head++], cy = queue[head++];
+						data[(cy * width + cx) * 4 + 3] = 0;
 
-    // 색상 반전 알고리즘 (RGB 채널만 뒤집고 알파는 유지)
-    function applyInvert(imgData) {
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            data[i]     = 255 - data[i];     // R
-            data[i + 1] = 255 - data[i + 1]; // G
-            data[i + 2] = 255 - data[i + 2]; // B
-        }
-    }
+						for (const n of neighbors) {
+								const nx = cx + n.x, ny = cy + n.y;
+								if (nx >= sourceLeft && nx < sourceRight && ny >= sourceTop && ny < sourceBottom) {
+										const vIdx = ny * width + nx;
+										if (!visited[vIdx] && isBackground(vIdx * 4)) {
+												visited[vIdx] = 1;
+												queue.push(nx, ny);
+										}
+								}
+						}
+				}
 
-    function updateCanvasPreviewBackground() {
-        const selected = previewBackground.value;
-        canvas.className = '';
-        switch (selected) {
-            case 'blackChecker':
-                // default checker background when no extra class is set
-                break;
-            case 'whiteChecker':
-                canvas.classList.add('whiteChecker');
-                break;
-            case 'black':
-                canvas.classList.add('black');
-                break;
-            case 'white':
-                canvas.classList.add('white');
-                break;
-            case 'green':
-                canvas.classList.add('green');
-                break;
-        }
-    }
-    
-    // 알파 블리딩 (테두리 픽셀픽스 알고리즘)
-    function alphaBleed(imgData) {
-        const width = imgData.width, height = imgData.height, data = imgData.data;
-        const numPixels = width * height;
-        const opaque = new Int8Array(numPixels);
-        const loose = new Uint8Array(numPixels);
-        let pending = [], pendingNext = [];
-        const offsets = [
-            {dx: -1, dy: -1}, {dx: 0, dy: -1}, {dx: 1, dy: -1},
-            {dx: -1, dy:  0},                  {dx: 1, dy:  0},
-            {dx: -1, dy:  1}, {dx: 0, dy:  1}, {dx: 1, dy:  1}
-        ];
+				if (strong) {
+						for (let y = sourceTop; y < sourceBottom; y++) {
+								for (let x = sourceLeft; x < sourceRight; x++) {
+										const idx = (y * width + x) * 4;
+										if (isBackground(idx)) {
+												data[idx + 3] = 0;
+										}
+								}
+						}
+				}
 
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const i = y * width + x;
-                const alpha = data[i * 4 + 3];
+		}
 
-                if (alpha <= 15) {
-                    data[i * 4 + 3] = 0; 
-                    let isLoose = true;
-                    for (let k = 0; k < 8; k++) {
-                        const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
-                        if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
-                            if (data[(nY * width + nX) * 4 + 3] > 15) { 
-                                isLoose = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (!isLoose) pending.push(i);
-                    else loose[i] = 1;
-                } else {
-                    opaque[i] = -1; 
-                }
-            }
-        }
+		function applySingleColorLogo(imgData, color) {
+				const data = imgData.data;
+				const red = parseInt(color.slice(1, 3), 16);
+				const green = parseInt(color.slice(3, 5), 16);
+				const blue = parseInt(color.slice(5, 7), 16);
 
-        while (pending.length > 0) {
-            pendingNext = [];
-            for (let p = 0; p < pending.length; p++) {
-                const i = pending[p], x = i % width, y = Math.floor(i / width);
-                let rSum = 0, gSum = 0, bSum = 0, count = 0;
+				for (let idx = 0; idx < data.length; idx += 4) {
+						if (data[idx + 3] <= 0) continue;
+						data[idx] = red;
+						data[idx + 1] = green;
+						data[idx + 2] = blue;
+				}
+		}
 
-                for (let k = 0; k < 8; k++) {
-                    const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
-                    if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
-                        const nI = nY * width + nX;
-                        if (opaque[nI] & 1) { 
-                            const nIdx = nI * 4;
-                            rSum += data[nIdx]; gSum += data[nIdx + 1]; bSum += data[nIdx + 2];
-                            count++;
-                        }
-                    }
-                }
+		function applyTransparentMargins(imgData, top, bottom, left, right) {
+				const width = imgData.width + left + right;
+				const height = imgData.height + top + bottom;
+				const paddedImage = new ImageData(width, height);
+				const sourceRowLength = imgData.width * 4;
+				const targetRowLength = width * 4;
 
-                if (count > 0) {
-                    const idx = i * 4;
-                    data[idx] = Math.round(rSum / count);
-                    data[idx + 1] = Math.round(gSum / count);
-                    data[idx + 2] = Math.round(bSum / count);
-                    
-                    opaque[i] = 0xFE; 
+				for (let y = 0; y < imgData.height; y++) {
+						const sourceStart = y * sourceRowLength;
+						const targetStart = (y + top) * targetRowLength + left * 4;
+						paddedImage.data.set(
+								imgData.data.subarray(sourceStart, sourceStart + sourceRowLength),
+								targetStart
+						);
+				}
+				return paddedImage;
+		}
 
-                    for (let k = 0; k < 8; k++) {
-                        const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
-                        if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
-                            const nI = nY * width + nX;
-                            if (loose[nI]) {
-                                pendingNext.push(nI);
-                                loose[nI] = 0;
-                            }
-                        }
-                    }
-                } else {
-                    pendingNext.push(i);
-                }
-            }
+		// 가우시안 블러 알고리즘 (알파 채널 보존형)
+		function applyGaussianBlur(imgData, radius) {
+				const data = imgData.data;
+				const width = imgData.width;
+				const height = imgData.height;
+				const tmp = new Uint8ClampedArray(data.length);
+				
+				// 가우시안 커널 생성
+				const rs = Math.ceil(radius * 2.57);
+				const kernel = [];
+				let kernelSum = 0;
+				for (let i = -rs; i <= rs; i++) {
+						const g = Math.exp(-(i * i) / (2 * radius * radius));
+						kernel.push(g);
+						kernelSum += g;
+				}
+				for (let i = 0; i < kernel.length; i++) kernel[i] /= kernelSum;
 
-            if (pendingNext.length > 0) {
-                for (let p = 0; p < pending.length; p++) opaque[pending[p]] >>= 1; 
-            }
-            pending = pendingNext;
-        }
-    }
+				// 수평 블러
+				for (let y = 0; y < height; y++) {
+						for (let x = 0; x < width; x++) {
+								let r = 0, g = 0, b = 0, a = 0;
+								for (let k = -rs; k <= rs; k++) {
+										const kx = Math.min(width - 1, Math.max(0, x + k));
+										const idx = (y * width + kx) * 4;
+										const weight = kernel[k + rs];
+										r += data[idx] * weight;
+										g += data[idx + 1] * weight;
+										b += data[idx + 2] * weight;
+										a += data[idx + 3] * weight;
+								}
+								const tidx = (y * width + x) * 4;
+								tmp[tidx] = r; tmp[tidx + 1] = g; tmp[tidx + 2] = b; tmp[tidx + 3] = a;
+						}
+				}
+
+				// 수직 블러 및 원본 복사
+				for (let y = 0; y < height; y++) {
+						for (let x = 0; x < width; x++) {
+								let r = 0, g = 0, b = 0, a = 0;
+								for (let k = -rs; k <= rs; k++) {
+										const ky = Math.min(height - 1, Math.max(0, y + k));
+										const idx = (ky * width + x) * 4;
+										const weight = kernel[k + rs];
+										r += tmp[idx] * weight;
+										g += tmp[idx + 1] * weight;
+										b += tmp[idx + 2] * weight;
+										a += tmp[idx + 3] * weight;
+								}
+								const oidx = (y * width + x) * 4;
+								data[oidx] = r; data[oidx + 1] = g; data[oidx + 2] = b; data[oidx + 3] = a;
+						}
+				}
+		}
+
+		// 색상 반전 알고리즘 (RGB 채널만 뒤집고 알파는 유지)
+		function applyInvert(imgData) {
+				const data = imgData.data;
+				for (let i = 0; i < data.length; i += 4) {
+						data[i]     = 255 - data[i];     // R
+						data[i + 1] = 255 - data[i + 1]; // G
+						data[i + 2] = 255 - data[i + 2]; // B
+				}
+		}
+
+		function updateCanvasPreviewBackground() {
+				const selected = previewBackground.value;
+				canvas.className = '';
+				switch (selected) {
+						case 'blackChecker':
+								// default checker background when no extra class is set
+								break;
+						case 'whiteChecker':
+								canvas.classList.add('whiteChecker');
+								break;
+						case 'black':
+								canvas.classList.add('black');
+								break;
+						case 'white':
+								canvas.classList.add('white');
+								break;
+						case 'green':
+								canvas.classList.add('green');
+								break;
+				}
+		}
+		
+		// 알파 블리딩 (테두리 픽셀픽스 알고리즘)
+		function alphaBleed(imgData) {
+				const width = imgData.width, height = imgData.height, data = imgData.data;
+				const numPixels = width * height;
+				const opaque = new Int8Array(numPixels);
+				const loose = new Uint8Array(numPixels);
+				let pending = [], pendingNext = [];
+				const offsets = [
+						{dx: -1, dy: -1}, {dx: 0, dy: -1}, {dx: 1, dy: -1},
+						{dx: -1, dy:  0},                  {dx: 1, dy:  0},
+						{dx: -1, dy:  1}, {dx: 0, dy:  1}, {dx: 1, dy:  1}
+				];
+
+				for (let y = 0; y < height; y++) {
+						for (let x = 0; x < width; x++) {
+								const i = y * width + x;
+								const alpha = data[i * 4 + 3];
+
+								if (alpha <= 15) {
+										data[i * 4 + 3] = 0; 
+										let isLoose = true;
+										for (let k = 0; k < 8; k++) {
+												const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+												if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+														if (data[(nY * width + nX) * 4 + 3] > 15) { 
+																isLoose = false;
+																break;
+														}
+												}
+										}
+										if (!isLoose) pending.push(i);
+										else loose[i] = 1;
+								} else {
+										opaque[i] = -1; 
+								}
+						}
+				}
+
+				while (pending.length > 0) {
+						pendingNext = [];
+						for (let p = 0; p < pending.length; p++) {
+								const i = pending[p], x = i % width, y = Math.floor(i / width);
+								let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+								for (let k = 0; k < 8; k++) {
+										const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+										if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+												const nI = nY * width + nX;
+												if (opaque[nI] & 1) { 
+														const nIdx = nI * 4;
+														rSum += data[nIdx]; gSum += data[nIdx + 1]; bSum += data[nIdx + 2];
+														count++;
+												}
+										}
+								}
+
+								if (count > 0) {
+										const idx = i * 4;
+										data[idx] = Math.round(rSum / count);
+										data[idx + 1] = Math.round(gSum / count);
+										data[idx + 2] = Math.round(bSum / count);
+										
+										opaque[i] = 0xFE; 
+
+										for (let k = 0; k < 8; k++) {
+												const nX = x + offsets[k].dx, nY = y + offsets[k].dy;
+												if (nX >= 0 && nX < width && nY >= 0 && nY < height) {
+														const nI = nY * width + nX;
+														if (loose[nI]) {
+																pendingNext.push(nI);
+																loose[nI] = 0;
+														}
+												}
+										}
+								} else {
+										pendingNext.push(i);
+								}
+						}
+
+						if (pendingNext.length > 0) {
+								for (let p = 0; p < pending.length; p++) opaque[pending[p]] >>= 1; 
+						}
+						pending = pendingNext;
+				}
+		}
 </script>
 </body>
 </html>
