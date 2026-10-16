@@ -599,6 +599,51 @@
 								</div>
 						</div>
 				</div>
+				<div class="control-group">
+						<label class="checkbox-container">
+								<input type="checkbox" id="useCropMargins">
+								<span class="checkbox-label-text">이미지 자르기</span>
+						</label>
+				</div>
+				<div class="expandable" id="cropMarginsGroup">
+						<div class="expandable-content">
+								<div class="control-group margin-slider-group">
+										<label for="cropAll">전체 자르기 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="cropAll" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="cropAllValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="cropTop">위쪽 자르기 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="cropTop" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="cropTopValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="cropBottom">아래쪽 자르기 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="cropBottom" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="cropBottomValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="cropLeft">왼쪽 자르기 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="cropLeft" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="cropLeftValue">0</span>
+										</div>
+								</div>
+								<div class="control-group margin-slider-group">
+										<label for="cropRight">오른쪽 자르기 (px):</label>
+										<div class="slider-container">
+												<input type="range" id="cropRight" min="0" max="500" value="0" disabled>
+												<span class="slider-value" id="cropRightValue">0</span>
+										</div>
+								</div>
+						</div>
+				</div>
 						<div class="control-group" id="previewBackgroundGroup">
 								<label for="previewBackground">미리보기 배경</label>
 								<select id="previewBackground">
@@ -751,6 +796,11 @@
 		const marginAll = document.getElementById('marginAll');
 		const marginSliders = ['marginTop', 'marginBottom', 'marginLeft', 'marginRight']
 				.map((id) => document.getElementById(id));
+		const useCropMargins = document.getElementById('useCropMargins');
+		const cropMarginsGroup = document.getElementById('cropMarginsGroup');
+		const cropAll = document.getElementById('cropAll');
+		const cropSliders = ['cropTop', 'cropBottom', 'cropLeft', 'cropRight']
+				.map((id) => document.getElementById(id));
 		
 		let currentFile = null;
 		let originalImage = null;
@@ -852,6 +902,59 @@
 				if (originalImage) runImageProcessing();
 		});
 
+		cropSliders.forEach((slider) => {
+				const value = document.getElementById(`${slider.id}Value`);
+				slider.addEventListener('input', () => {
+						value.innerText = slider.value;
+						updateCropSliderBounds(slider);
+				});
+				slider.addEventListener('change', () => {
+						if (originalImage) runImageProcessing();
+				});
+		});
+		cropAll.addEventListener('input', () => {
+				document.getElementById('cropAllValue').innerText = cropAll.value;
+				cropSliders.forEach((slider) => {
+						slider.value = cropAll.value;
+						document.getElementById(`${slider.id}Value`).innerText = cropAll.value;
+				});
+				updateCropSliderBounds();
+		});
+		cropAll.addEventListener('change', () => {
+				if (originalImage) runImageProcessing();
+		});
+
+		function updateCropSliderBounds() {
+				if (!originalImage) return;
+				const width = originalImage.naturalWidth;
+				const height = originalImage.naturalHeight;
+				const top = document.getElementById('cropTop');
+				const bottom = document.getElementById('cropBottom');
+				const left = document.getElementById('cropLeft');
+				const right = document.getElementById('cropRight');
+				const updateOpposingPair = (first, second, dimension) => {
+						const firstValue = Number(first.value);
+						const secondValue = Number(second.value);
+						const firstMax = Math.max(0, dimension - 1 - secondValue);
+						const secondMax = Math.max(0, dimension - 1 - firstValue);
+						first.max = firstMax;
+						second.max = secondMax;
+						if (Number(first.value) > firstMax) first.value = firstMax;
+						if (Number(second.value) > secondMax) second.value = secondMax;
+						[first, second].forEach((slider) => {
+								document.getElementById(`${slider.id}Value`).innerText = slider.value;
+								updateRangeProgress(slider);
+						});
+				};
+				updateOpposingPair(top, bottom, height);
+				updateOpposingPair(left, right, width);
+				const allMax = Math.min(Math.floor((width - 1) / 2), Math.floor((height - 1) / 2));
+				cropAll.max = Math.max(0, allMax);
+				if (Number(cropAll.value) > Number(cropAll.max)) cropAll.value = cropAll.max;
+				document.getElementById('cropAllValue').innerText = cropAll.value;
+				updateRangeProgress(cropAll);
+		}
+
 		document.querySelector('.control-panel').addEventListener('change', (e) => {
 				if (e.target.matches('input[type="checkbox"]') && originalImage && !isResettingCheckboxes) {
 						runImageProcessing();
@@ -875,6 +978,13 @@
 						slider.value = '0';
 						document.getElementById(`${slider.id}Value`).innerText = '0';
 				});
+				cropAll.value = '0';
+				document.getElementById('cropAllValue').innerText = '0';
+				cropSliders.forEach((slider) => {
+						slider.value = '0';
+						document.getElementById(`${slider.id}Value`).innerText = '0';
+				});
+				updateCropSliderBounds();
 				document.querySelectorAll('.slider-container input[type="range"]').forEach(updateRangeProgress);
 				if (originalImage) runImageProcessing();
 		});
@@ -929,6 +1039,13 @@
 				});
 		});
 
+		useCropMargins.addEventListener('change', () => {
+				const enabled = useCropMargins.checked;
+				cropMarginsGroup.classList.toggle('is-expanded', enabled);
+				setRangeDisabled(cropAll, !enabled);
+				cropSliders.forEach((slider) => setRangeDisabled(slider, !enabled));
+		});
+
 		previewBackground.addEventListener('change', () => updateCanvasPreviewBackground());
 
 		dropZone.addEventListener('click', () => fileInput.click());
@@ -948,6 +1065,7 @@
 				img.onload = function() {
 						try {
 								originalImage = img;
+								updateCropSliderBounds();
 								marginSliders.forEach((slider, index) => {
 										const dimension = index < 2 ? img.naturalHeight : img.naturalWidth;
 										slider.max = dimension;
@@ -989,8 +1107,18 @@
 						const backgroundColor = [imgData.data[0], imgData.data[1], imgData.data[2]];
 						let sourceLeft = 0;
 						let sourceTop = 0;
-						const sourceWidth = imgData.width;
-						const sourceHeight = imgData.height;
+						let sourceWidth = imgData.width;
+						let sourceHeight = imgData.height;
+
+						if (useCropMargins.checked) {
+								const top = Number(document.getElementById('cropTop').value);
+								const bottom = Number(document.getElementById('cropBottom').value);
+								const left = Number(document.getElementById('cropLeft').value);
+								const right = Number(document.getElementById('cropRight').value);
+								imgData = applyImageCrop(imgData, top, bottom, left, right);
+								sourceWidth = imgData.width;
+								sourceHeight = imgData.height;
+						}
 
 						if (useTransparentMargins.checked) {
 								const top = Number(document.getElementById('marginTop').value);
@@ -1223,6 +1351,26 @@
 						);
 				}
 				return paddedImage;
+		}
+
+		function applyImageCrop(imgData, top, bottom, left, right) {
+				const width = imgData.width - left - right;
+				const height = imgData.height - top - bottom;
+				if (width < 1 || height < 1) {
+						throw new Error('Crop settings must leave at least one pixel in each dimension.');
+				}
+
+				const croppedImage = new ImageData(width, height);
+				const sourceRowLength = imgData.width * 4;
+				const targetRowLength = width * 4;
+				for (let y = 0; y < height; y++) {
+						const sourceStart = (y + top) * sourceRowLength + left * 4;
+						croppedImage.data.set(
+								imgData.data.subarray(sourceStart, sourceStart + targetRowLength),
+								y * targetRowLength
+						);
+				}
+				return croppedImage;
 		}
 
 		// 가우시안 블러: premultiplied alpha prevents transparent RGB from tinting edges.
